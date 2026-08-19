@@ -14,12 +14,15 @@ import type { MatrixClient } from "matrix-js-sdk";
 import type { ReactNode } from "react";
 import { SettingsModal } from "./SettingsModal";
 import {
+  deepFilterNetNoiseSuppression,
+  deepFilterNetNoiseSuppressionLevel,
   micCutoffEnabled,
   micCutoffThresholdDb,
   rnnoiseNoiseSuppression,
   rnnoiseNoiseSuppressionPreset,
 } from "./settings";
 import { supportsRNNoiseProcessor } from "../audio/RNNoiseProcessor";
+import { supportsDeepFilterNetProcessor } from "../audio/DeepFilterNetProcessor";
 import { MIC_CUTOFF_DEFAULT_DB } from "../audio/microphoneGate";
 
 const { mockRequestDeviceNames } = vi.hoisted(() => ({
@@ -32,6 +35,15 @@ vi.mock("../audio/RNNoiseProcessor", async () => {
   return {
     ...actual,
     supportsRNNoiseProcessor: vi.fn(() => true),
+  };
+});
+
+vi.mock("../audio/DeepFilterNetProcessor", async () => {
+  const actual = await vi.importActual("../audio/DeepFilterNetProcessor");
+
+  return {
+    ...actual,
+    supportsDeepFilterNetProcessor: vi.fn(() => true),
   };
 });
 
@@ -229,5 +241,80 @@ describe("SettingsModal RNNoise controls", () => {
       screen.getByText("(Microphone cutoff is not supported by this browser.)"),
     ).toBeInTheDocument();
     expect(screen.queryByText(/Cutoff volume/)).not.toBeInTheDocument();
+  });
+});
+
+describe("SettingsModal DeepFilterNet controls", () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      "ResizeObserver",
+      class ResizeObserver {
+        public observe(): void {}
+        public unobserve(): void {}
+        public disconnect(): void {}
+      },
+    );
+    localStorage.clear();
+    mockRequestDeviceNames.mockClear();
+    deepFilterNetNoiseSuppression.setValue(false);
+    deepFilterNetNoiseSuppressionLevel.setValue(0.75);
+    vi.mocked(supportsDeepFilterNetProcessor).mockReturnValue(true);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("renders the DeepFilterNet checkbox in the audio tab", () => {
+    renderSettingsModal();
+
+    expect(
+      screen.getByLabelText("Enable AI noise suppression (DeepFilterNet)"),
+    ).toBeInTheDocument();
+  });
+
+  it("disables DeepFilterNet when support is unavailable", () => {
+    vi.mocked(supportsDeepFilterNetProcessor).mockReturnValue(false);
+    deepFilterNetNoiseSuppression.setValue(true);
+
+    renderSettingsModal();
+
+    const checkbox = screen.getByLabelText(
+      "Enable AI noise suppression (DeepFilterNet)",
+    );
+    expect(checkbox).toBeDisabled();
+    expect(checkbox).not.toBeChecked();
+    expect(
+      screen.getByText(
+        "(AI noise suppression is not supported by this browser.)",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("persists DeepFilterNet setting when toggled", async () => {
+    const user = userEvent.setup();
+    renderSettingsModal();
+
+    const checkbox = screen.getByLabelText(
+      "Enable AI noise suppression (DeepFilterNet)",
+    );
+    await user.click(checkbox);
+
+    expect(deepFilterNetNoiseSuppression.getValue()).toBe(true);
+    expect(
+      localStorage.getItem("matrix-setting-deepfilternet-noise-suppression"),
+    ).toBe("true");
+  });
+
+  it("shows the noise reduction level slider when DeepFilterNet is enabled", async () => {
+    const user = userEvent.setup();
+    renderSettingsModal();
+
+    const checkbox = screen.getByLabelText(
+      "Enable AI noise suppression (DeepFilterNet)",
+    );
+    await user.click(checkbox);
+
+    expect(screen.getByText(/Noise reduction level/)).toBeInTheDocument();
   });
 });
