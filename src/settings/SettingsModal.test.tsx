@@ -326,7 +326,9 @@ describe("SettingsModal DeepFilterNet controls", () => {
     renderSettingsModal();
 
     expect(
-      screen.getByText(/DeepFilterNet could not be enabled: Failed to fetch WASM: 404/),
+      screen.getByText(
+        /DeepFilterNet could not be enabled: Failed to fetch WASM: 404/,
+      ),
     ).toBeInTheDocument();
   });
 });

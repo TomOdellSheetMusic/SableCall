@@ -339,7 +339,9 @@ export const SettingsModal: FC<Props> = ({
       deepFilterNetNoiseSuppressionLevelSetting,
     );
     const [dfLevelRaw, setDfLevelRaw] = useState(dfLevel);
-    const dfError = useBehavior(deepFilterNetNoiseSuppressionErrorSetting.value$);
+    const dfError = useBehavior(
+      deepFilterNetNoiseSuppressionErrorSetting.value$,
+    );
     const effectiveDfEnabled = supported && !!dfEnabled;
 
     useEffect(() => {
