@@ -5,7 +5,6 @@ SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE in the repository root for full details.
 */
 
-import { DeepFilterNoiseFilterProcessor } from "deepfilternet3-noise-filter";
 import { logger } from "matrix-js-sdk/lib/logger";
 
 import type {
@@ -13,11 +12,7 @@ import type {
   Track,
   TrackProcessor,
 } from "livekit-client";
-
-/**
- * The sample rate DeepFilterNet is trained for.
- */
-const DEEPFILTERNET_SAMPLE_RATE = 48000;
+import deepFilterNetWorkletModuleUrl from "./DeepFilterNetWorkletModule.ts?worker&url";
 
 /**
  * The default noise reduction level (0-1), mapped to the package's 0-100 scale.
@@ -68,10 +63,11 @@ export function supportsDeepFilterNetProcessor(): boolean {
  * non-stationary noise (keyboard, traffic, etc.). It runs in an AudioWorklet
  * and loads its WASM binary and ONNX model from locally-bundled assets.
  *
- * The underlying `DeepFilterNoiseFilterProcessor` from the
- * `deepfilternet3-noise-filter` package implements the LiveKit
- * `TrackProcessor` interface directly, so this wrapper primarily manages the
- * lifecycle and exposes a stable API for the rest of the app.
+ * Unlike the `deepfilternet3-noise-filter` package (which hard-requires a
+ * 48kHz AudioContext and fails on Windows/desktop WebViews that run at
+ * 44.1kHz), this processor uses a custom worklet that resamples between the
+ * AudioContext's native sample rate and the 48kHz the model expects. This
+ * makes DeepFilterNet work on any platform, including Windows WebView2.
  */
 export class DeepFilterNetProcessor implements TrackProcessor<
   Track.Kind.Audio,
@@ -80,11 +76,13 @@ export class DeepFilterNetProcessor implements TrackProcessor<
   public name = DEEPFILTERNET_PROCESSOR_NAME;
   public processedTrack?: MediaStreamTrack;
 
-  // oxlint-disable-next-line typescript/no-redundant-type-constituents -- The
-  // DeepFilterNoiseFilterProcessor type is not resolvable by oxlint's type-aware
-  // analysis (it imports from livekit-client), so it is treated as `any`.
-  private processor: DeepFilterNoiseFilterProcessor | null = null;
+  private sourceNode?: MediaStreamAudioSourceNode;
+  private workletNode?: AudioWorkletNode;
+  private destinationNode?: MediaStreamAudioDestinationNode;
   private audioContext?: AudioContext;
+  private wasmModule?: WebAssembly.Module;
+  private modelBytes?: ArrayBuffer;
+  private destroyed = false;
   private level: number;
   private enabled: boolean;
 
@@ -96,55 +94,57 @@ export class DeepFilterNetProcessor implements TrackProcessor<
     this.enabled = enabled;
   }
 
-  /**
-   * Creates (or reuses) the underlying DeepFilterNet processor.
-   */
-  private ensureProcessor(): DeepFilterNoiseFilterProcessor {
-    if (!this.processor) {
-      this.processor = new DeepFilterNoiseFilterProcessor({
-        sampleRate: DEEPFILTERNET_SAMPLE_RATE,
-        noiseReductionLevel: this.clampLevel(this.level) * 100,
-        enabled: this.enabled,
-        assetConfig: {
-          cdnUrl: resolveAssetUrl(),
-        },
-      });
-    }
-    return this.processor;
-  }
-
   private clampLevel(level: number): number {
     return Math.max(0, Math.min(1, level));
   }
 
   /**
-   * Creates (or reuses) a dedicated 48kHz AudioContext for DeepFilterNet.
-   *
-   * DeepFilterNet's model is trained for 48kHz audio. LiveKit's shared
-   * AudioContext is created at the platform default sample rate, which is
-   * 44.1kHz on many Windows/desktop setups (and why RNNoise — also 48kHz-only
-   * — fails there). Creating our own context at 48kHz lets DeepFilterNet work
-   * on those platforms.
+   * Fetches and compiles the DeepFilterNet WASM binary and ONNX model from the
+   * bundled assets. Cached so it only happens once per processor.
+   */
+  private async ensureAssets(): Promise<void> {
+    if (this.wasmModule && this.modelBytes) return;
+
+    const baseUrl = resolveAssetUrl();
+    const [wasmResponse, modelResponse] = await Promise.all([
+      fetch(`${baseUrl}/v3/pkg/df_bg.wasm`),
+      fetch(`${baseUrl}/v3/models/DeepFilterNet3_onnx.tar.gz`),
+    ]);
+
+    if (!wasmResponse.ok) {
+      throw new Error(
+        `Failed to fetch DeepFilterNet WASM: ${wasmResponse.status} ${wasmResponse.statusText}`,
+      );
+    }
+    if (!modelResponse.ok) {
+      throw new Error(
+        `Failed to fetch DeepFilterNet model: ${modelResponse.status} ${modelResponse.statusText}`,
+      );
+    }
+
+    const [wasmBytes, modelBytes] = await Promise.all([
+      wasmResponse.arrayBuffer(),
+      modelResponse.arrayBuffer(),
+    ]);
+
+    this.wasmModule = await WebAssembly.compile(wasmBytes);
+    this.modelBytes = modelBytes;
+  }
+
+  /**
+   * Creates (or reuses) an AudioContext at the platform's native sample rate.
+   * The worklet resamples to 48kHz internally, so we do not force 48kHz here
+   * (which Windows WebView2 often cannot provide).
    */
   private async ensureAudioContext(): Promise<AudioContext> {
     if (this.audioContext) return this.audioContext;
 
     let context: AudioContext;
     try {
-      context = new AudioContext({ sampleRate: DEEPFILTERNET_SAMPLE_RATE });
+      context = new AudioContext();
     } catch {
       throw new Error(
-        `DeepFilterNet requires a ${DEEPFILTERNET_SAMPLE_RATE}Hz AudioContext, which this platform does not support.`,
-      );
-    }
-
-    // Some WebViews silently ignore the requested sample rate. DeepFilterNet
-    // cannot process audio at any other rate, so fail fast rather than
-    // producing garbled audio.
-    if (context.sampleRate !== DEEPFILTERNET_SAMPLE_RATE) {
-      await context.close();
-      throw new Error(
-        `DeepFilterNet requires a ${DEEPFILTERNET_SAMPLE_RATE}Hz AudioContext (received ${context.sampleRate}Hz).`,
+        "DeepFilterNet requires an AudioContext, which this platform does not support.",
       );
     }
 
@@ -163,13 +163,59 @@ export class DeepFilterNetProcessor implements TrackProcessor<
     return context;
   }
 
+  private async ensureWorkletRegistered(
+    audioContext: AudioContext,
+  ): Promise<void> {
+    await audioContext.audioWorklet.addModule(deepFilterNetWorkletModuleUrl);
+  }
+
   public async init(opts: AudioProcessorOptions): Promise<void> {
-    const processor = this.ensureProcessor();
+    if (this.workletNode !== undefined) {
+      await this.destroy();
+    }
+    this.destroyed = false;
+
     try {
+      await this.ensureAssets();
       const audioContext = await this.ensureAudioContext();
-      processor.audioContext = audioContext;
-      await processor.init({ track: opts.track });
-      this.processedTrack = processor.processedTrack;
+      await this.ensureWorkletRegistered(audioContext);
+
+      if (this.destroyed) return;
+
+      const sourceNode = audioContext.createMediaStreamSource(
+        new MediaStream([opts.track]),
+      );
+      const workletNode = new AudioWorkletNode(
+        audioContext,
+        "deepfilternet-processor",
+        {
+          channelCount: 1,
+          channelCountMode: "explicit",
+          processorOptions: {
+            wasmModule: this.wasmModule,
+            modelBytes: this.modelBytes,
+            suppressionLevel: this.clampLevel(this.level) * 100,
+          },
+        },
+      );
+      const destinationNode = audioContext.createMediaStreamDestination();
+
+      sourceNode.connect(workletNode);
+      workletNode.connect(destinationNode);
+
+      this.sourceNode = sourceNode;
+      this.workletNode = workletNode;
+      this.destinationNode = destinationNode;
+      this.processedTrack = destinationNode.stream.getAudioTracks()[0];
+
+      workletNode.port.postMessage({
+        type: "setSuppressionLevel",
+        value: this.clampLevel(this.level) * 100,
+      });
+      workletNode.port.postMessage({
+        type: "setBypass",
+        value: !this.enabled,
+      });
     } catch (e) {
       logger.error("[DeepFilterNetProcessor] init failed", e);
       throw e;
@@ -177,30 +223,37 @@ export class DeepFilterNetProcessor implements TrackProcessor<
   }
 
   public async restart(opts: AudioProcessorOptions): Promise<void> {
-    const processor = this.ensureProcessor();
-    try {
-      const audioContext = await this.ensureAudioContext();
-      processor.audioContext = audioContext;
-      await processor.restart({ track: opts.track });
-      this.processedTrack = processor.processedTrack;
-    } catch (e) {
-      logger.error("[DeepFilterNetProcessor] restart failed", e);
-      throw e;
-    }
+    await this.destroy();
+    await this.init(opts);
   }
 
   public async destroy(): Promise<void> {
-    if (this.processor) {
-      try {
-        await this.processor.destroy();
-      } catch (e) {
-        logger.warn("[DeepFilterNetProcessor] destroy failed", e);
-      }
-      this.processor = null;
+    if (this.destroyed) {
+      await Promise.resolve();
+      return;
     }
-    // The package's destroy() closes the AudioContext it was given.
-    this.audioContext = undefined;
+    this.destroyed = true;
+
+    this.workletNode?.port.postMessage({ type: "destroy" });
+
+    this.sourceNode?.disconnect();
+    this.workletNode?.disconnect();
+    this.destinationNode?.disconnect();
+
+    try {
+      this.processedTrack?.stop();
+    } catch (e) {
+      logger.warn(
+        "[DeepFilterNetProcessor] failed to stop processed track during destroy",
+        e,
+      );
+    }
+
+    this.sourceNode = undefined;
+    this.workletNode = undefined;
+    this.destinationNode = undefined;
     this.processedTrack = undefined;
+    await Promise.resolve();
   }
 
   /**
@@ -208,7 +261,10 @@ export class DeepFilterNetProcessor implements TrackProcessor<
    */
   public setSuppressionLevel(level: number): void {
     this.level = this.clampLevel(level);
-    this.processor?.setSuppressionLevel(this.level * 100);
+    this.workletNode?.port.postMessage({
+      type: "setSuppressionLevel",
+      value: this.level * 100,
+    });
   }
 
   /**
@@ -216,6 +272,10 @@ export class DeepFilterNetProcessor implements TrackProcessor<
    */
   public async setEnabled(enabled: boolean): Promise<void> {
     this.enabled = enabled;
-    await this.processor?.setEnabled(enabled);
+    this.workletNode?.port.postMessage({
+      type: "setBypass",
+      value: !enabled,
+    });
   }
 }
+

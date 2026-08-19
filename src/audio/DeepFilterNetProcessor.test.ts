@@ -6,7 +6,6 @@ Please see LICENSE in the repository root for full details.
 */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DeepFilterNoiseFilterProcessor } from "deepfilternet3-noise-filter";
 
 import {
   DeepFilterNetProcessor,
@@ -14,89 +13,51 @@ import {
   supportsDeepFilterNetProcessor,
 } from "./DeepFilterNetProcessor";
 
-type DeepFilterNoiseFilterProcessorOptions = Record<string, unknown>;
+const { WORKLET_MODULE_URL } = vi.hoisted(() => ({
+  WORKLET_MODULE_URL:
+    "/src/audio/DeepFilterNetWorkletModule.ts?worker_file&type=module",
+}));
 
-type DeepFilterNoiseFilterProcessorContext = {
-  setEnabled?: unknown;
-  setSuppressionLevel?: unknown;
-  destroy?: unknown;
-  init?: unknown;
-  restart?: unknown;
-  processedTrack?: MediaStreamTrack;
-};
-
-type NoiseFilterProcessorMock = ReturnType<typeof vi.fn> & {
-  mockSetEnabled: ReturnType<typeof vi.fn>;
-  mockSetSuppressionLevel: ReturnType<typeof vi.fn>;
-  mockDestroy: ReturnType<typeof vi.fn>;
-  mockInit: ReturnType<typeof vi.fn>;
-  mockRestart: ReturnType<typeof vi.fn>;
-};
-
-vi.mock("deepfilternet3-noise-filter", () => {
-  const mockSetEnabled = vi.fn().mockResolvedValue(true);
-  const mockSetSuppressionLevel = vi.fn();
-  const mockDestroy = vi.fn().mockResolvedValue(undefined);
-  const mockInit = vi.fn().mockResolvedValue(undefined);
-  const mockRestart = vi.fn().mockResolvedValue(undefined);
-
-  const mockDeepFilterNoiseFilterProcessor = vi
-    .fn()
-    .mockImplementation(function DeepFilterNoiseFilterProcessor(
-      this: DeepFilterNoiseFilterProcessorContext,
-      options: DeepFilterNoiseFilterProcessorOptions,
-    ): void {
-      Object.assign(this, options);
-      this.setEnabled = mockSetEnabled;
-      this.setSuppressionLevel = mockSetSuppressionLevel;
-      this.destroy = mockDestroy;
-      this.init = mockInit;
-      this.restart = mockRestart;
-      this.processedTrack = {} as MediaStreamTrack;
-    });
-
-  Object.assign(mockDeepFilterNoiseFilterProcessor, {
-    mockSetEnabled,
-    mockSetSuppressionLevel,
-    mockDestroy,
-    mockInit,
-    mockRestart,
-  });
-
-  return {
-    __esModule: true,
-    DeepFilterNoiseFilterProcessor: mockDeepFilterNoiseFilterProcessor,
-  };
-});
-
-const mockDeepFilterNoiseFilterProcessor =
-  DeepFilterNoiseFilterProcessor as unknown as NoiseFilterProcessorMock;
+vi.mock("./DeepFilterNetWorkletModule.ts?url", () => ({
+  default: WORKLET_MODULE_URL,
+}));
 
 const mockTrack = { kind: "audio" } as MediaStreamTrack;
 
 class MockAudioContext {
-  public sampleRate = 48000;
+  public sampleRate = 44100;
   public state: AudioContextState = "running";
   public audioWorklet = {
     addModule: vi.fn().mockResolvedValue(undefined),
   };
-  public createMediaStreamSource = vi.fn();
-  public createMediaStreamDestination = vi.fn();
+  public createMediaStreamSource = vi.fn().mockReturnValue({
+    connect: vi.fn(),
+    disconnect: vi.fn(),
+  });
+  public createMediaStreamDestination = vi.fn().mockReturnValue({
+    stream: { getAudioTracks: () => [{ stop: vi.fn() }] },
+    connect: vi.fn(),
+    disconnect: vi.fn(),
+  });
   public close = vi.fn().mockResolvedValue(undefined);
   public resume = vi.fn().mockResolvedValue(undefined);
 }
 
+class MockAudioWorkletNode {
+  public port = {
+    postMessage: vi.fn(),
+  };
+  public connect = vi.fn();
+  public disconnect = vi.fn();
+}
+
 describe("DeepFilterNetProcessor", () => {
   beforeEach((): void => {
-    mockDeepFilterNoiseFilterProcessor.mockSetEnabled.mockClear();
-    mockDeepFilterNoiseFilterProcessor.mockSetSuppressionLevel.mockClear();
-    mockDeepFilterNoiseFilterProcessor.mockDestroy.mockClear();
-    mockDeepFilterNoiseFilterProcessor.mockInit.mockClear();
-    mockDeepFilterNoiseFilterProcessor.mockRestart.mockClear();
-    mockDeepFilterNoiseFilterProcessor.mockClear();
-
     vi.stubGlobal("AudioContext", MockAudioContext);
-    vi.stubGlobal("WebAssembly", {});
+    vi.stubGlobal("AudioWorkletNode", MockAudioWorkletNode);
+    vi.stubGlobal("WebAssembly", {
+      compile: vi.fn().mockResolvedValue({}),
+    });
     vi.stubGlobal(
       "MediaStreamAudioDestinationNode",
       class MediaStreamAudioDestinationNode {},
@@ -104,6 +65,14 @@ describe("DeepFilterNetProcessor", () => {
     vi.stubGlobal(
       "MediaStreamAudioSourceNode",
       class MediaStreamAudioSourceNode {},
+    );
+    vi.stubGlobal("MediaStream", class MediaStream {});
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(8)),
+      }),
     );
   });
 
@@ -116,108 +85,85 @@ describe("DeepFilterNetProcessor", () => {
     expect(processor.name).toBe(DEEPFILTERNET_PROCESSOR_NAME);
   });
 
-  it("initializes the underlying processor with the expected configuration", async (): Promise<void> => {
+  it("fetches and compiles the DeepFilterNet assets on init", async (): Promise<void> => {
     const processor = new DeepFilterNetProcessor(0.5, false);
 
     await processor.init({ track: mockTrack } as never);
 
-    expect(mockDeepFilterNoiseFilterProcessor).toHaveBeenCalledTimes(1);
-    expect(mockDeepFilterNoiseFilterProcessor).toHaveBeenCalledWith(
-      expect.objectContaining({
-        sampleRate: 48000,
-        noiseReductionLevel: 50,
-        enabled: false,
-        assetConfig: expect.objectContaining({
-          cdnUrl: expect.any(String),
-        }),
-      }),
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/v3/pkg/df_bg.wasm"),
     );
-    expect(mockDeepFilterNoiseFilterProcessor.mockInit).toHaveBeenCalledTimes(
-      1,
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/v3/models/DeepFilterNet3_onnx.tar.gz"),
     );
+    expect(WebAssembly.compile).toHaveBeenCalled();
     expect(processor.processedTrack).toBeDefined();
   });
 
-  it("creates a dedicated 48kHz AudioContext for DeepFilterNet", async (): Promise<void> => {
+  it("creates an AudioContext at the native sample rate (no 48kHz requirement)", async (): Promise<void> => {
     const MockAudioContextSpy = vi.fn(MockAudioContext);
     vi.stubGlobal("AudioContext", MockAudioContextSpy);
 
     const processor = new DeepFilterNetProcessor();
     await processor.init({ track: mockTrack } as never);
 
-    expect(MockAudioContextSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ sampleRate: 48000 }),
+    expect(MockAudioContextSpy).toHaveBeenCalledWith();
+  });
+
+  it("registers the worklet module on the AudioContext", async (): Promise<void> => {
+    const MockAudioContextSpy = vi.fn(MockAudioContext);
+    vi.stubGlobal("AudioContext", MockAudioContextSpy);
+
+    const processor = new DeepFilterNetProcessor();
+    await processor.init({ track: mockTrack } as never);
+
+    const context = MockAudioContextSpy.mock.results[0].value as MockAudioContext;
+    expect(context.audioWorklet.addModule).toHaveBeenCalledWith(
+      WORKLET_MODULE_URL,
     );
   });
 
-  it("throws when the platform cannot create a 48kHz AudioContext", async (): Promise<void> => {
+  it("throws when the WASM fetch fails", async (): Promise<void> => {
     vi.stubGlobal(
-      "AudioContext",
-      class {
-        public constructor() {
-          throw new Error("not supported");
-        }
-      },
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 404,
+        statusText: "Not Found",
+      }),
     );
 
     const processor = new DeepFilterNetProcessor();
     await expect(processor.init({ track: mockTrack } as never)).rejects.toThrow(
-      /48000Hz AudioContext/,
+      /Failed to fetch DeepFilterNet WASM/,
     );
   });
 
-  it("throws when the AudioContext sample rate is not 48kHz", async (): Promise<void> => {
-    vi.stubGlobal(
-      "AudioContext",
-      class {
-        public sampleRate = 44100;
-        public state: AudioContextState = "running";
-        public close = vi.fn().mockResolvedValue(undefined);
-      },
-    );
+  it("throws when the model fetch fails", async (): Promise<void> => {
+    const fetchMock = vi.fn();
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(8)),
+    });
+    fetchMock.mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+      statusText: "Not Found",
+    });
+    vi.stubGlobal("fetch", fetchMock);
 
     const processor = new DeepFilterNetProcessor();
     await expect(processor.init({ track: mockTrack } as never)).rejects.toThrow(
-      /48000Hz AudioContext/,
+      /Failed to fetch DeepFilterNet model/,
     );
   });
 
-  it("does not initialize the underlying processor twice", async (): Promise<void> => {
+  it("does not initialize twice", async (): Promise<void> => {
     const processor = new DeepFilterNetProcessor();
     await processor.init({ track: mockTrack } as never);
     await processor.init({ track: mockTrack } as never);
 
-    expect(mockDeepFilterNoiseFilterProcessor).toHaveBeenCalledTimes(1);
-  });
-
-  it("forwards suppression level changes and clamps out-of-range values", async (): Promise<void> => {
-    const processor = new DeepFilterNetProcessor();
-    await processor.init({ track: mockTrack } as never);
-
-    processor.setSuppressionLevel(1.5);
-    processor.setSuppressionLevel(-0.2);
-
-    expect(
-      mockDeepFilterNoiseFilterProcessor.mockSetSuppressionLevel,
-    ).toHaveBeenNthCalledWith(1, 100);
-    expect(
-      mockDeepFilterNoiseFilterProcessor.mockSetSuppressionLevel,
-    ).toHaveBeenNthCalledWith(2, 0);
-  });
-
-  it("forwards enabled state changes to the underlying processor", async (): Promise<void> => {
-    const processor = new DeepFilterNetProcessor();
-    await processor.init({ track: mockTrack } as never);
-
-    await processor.setEnabled(false);
-    await processor.setEnabled(true);
-
-    expect(
-      mockDeepFilterNoiseFilterProcessor.mockSetEnabled,
-    ).toHaveBeenNthCalledWith(1, false);
-    expect(
-      mockDeepFilterNoiseFilterProcessor.mockSetEnabled,
-    ).toHaveBeenNthCalledWith(2, true);
+    expect(WebAssembly.compile).toHaveBeenCalledTimes(1);
   });
 
   it("destroys the processor and resets internal state", async (): Promise<void> => {
@@ -226,9 +172,6 @@ describe("DeepFilterNetProcessor", () => {
 
     await processor.destroy();
 
-    expect(
-      mockDeepFilterNoiseFilterProcessor.mockDestroy,
-    ).toHaveBeenCalledTimes(1);
     expect(processor.processedTrack).toBeUndefined();
   });
 
