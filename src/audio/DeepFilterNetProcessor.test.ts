@@ -132,7 +132,9 @@ describe("DeepFilterNetProcessor", () => {
         }),
       }),
     );
-    expect(mockDeepFilterNoiseFilterProcessor.mockInit).toHaveBeenCalledTimes(1);
+    expect(mockDeepFilterNoiseFilterProcessor.mockInit).toHaveBeenCalledTimes(
+      1,
+    );
     expect(processor.processedTrack).toBeDefined();
   });
 
@@ -210,14 +212,12 @@ describe("DeepFilterNetProcessor", () => {
     await processor.setEnabled(false);
     await processor.setEnabled(true);
 
-    expect(mockDeepFilterNoiseFilterProcessor.mockSetEnabled).toHaveBeenNthCalledWith(
-      1,
-      false,
-    );
-    expect(mockDeepFilterNoiseFilterProcessor.mockSetEnabled).toHaveBeenNthCalledWith(
-      2,
-      true,
-    );
+    expect(
+      mockDeepFilterNoiseFilterProcessor.mockSetEnabled,
+    ).toHaveBeenNthCalledWith(1, false);
+    expect(
+      mockDeepFilterNoiseFilterProcessor.mockSetEnabled,
+    ).toHaveBeenNthCalledWith(2, true);
   });
 
   it("destroys the processor and resets internal state", async (): Promise<void> => {
@@ -226,9 +226,9 @@ describe("DeepFilterNetProcessor", () => {
 
     await processor.destroy();
 
-    expect(mockDeepFilterNoiseFilterProcessor.mockDestroy).toHaveBeenCalledTimes(
-      1,
-    );
+    expect(
+      mockDeepFilterNoiseFilterProcessor.mockDestroy,
+    ).toHaveBeenCalledTimes(1);
     expect(processor.processedTrack).toBeUndefined();
   });
 
