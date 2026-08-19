@@ -376,6 +376,50 @@ describe("UrlParams", () => {
     });
   });
 
+  describe("deepFilterNetNoiseSuppression", () => {
+    it("defaults to undefined", () => {
+      expect(computeUrlParams().deepFilterNetNoiseSuppression).toBeUndefined();
+    });
+
+    it("is parsed as a flag", () => {
+      expect(
+        computeUrlParams("?deepFilterNetNoiseSuppression")
+          .deepFilterNetNoiseSuppression,
+      ).toBe(true);
+      expect(
+        computeUrlParams("?deepFilterNetNoiseSuppression=false")
+          .deepFilterNetNoiseSuppression,
+      ).toBe(false);
+    });
+  });
+
+  describe("deepFilterNetNoiseSuppressionLevel", () => {
+    it("defaults to undefined", () => {
+      expect(
+        computeUrlParams().deepFilterNetNoiseSuppressionLevel,
+      ).toBeUndefined();
+    });
+
+    it("is parsed and clamped to 0-1", () => {
+      expect(
+        computeUrlParams("?deepFilterNetNoiseSuppressionLevel=0.5")
+          .deepFilterNetNoiseSuppressionLevel,
+      ).toBe(0.5);
+      expect(
+        computeUrlParams("?deepFilterNetNoiseSuppressionLevel=2")
+          .deepFilterNetNoiseSuppressionLevel,
+      ).toBe(1);
+      expect(
+        computeUrlParams("?deepFilterNetNoiseSuppressionLevel=-1")
+          .deepFilterNetNoiseSuppressionLevel,
+      ).toBe(0);
+      expect(
+        computeUrlParams("?deepFilterNetNoiseSuppressionLevel=abc")
+          .deepFilterNetNoiseSuppressionLevel,
+      ).toBeUndefined();
+    });
+  });
+
   describe("echoCancellation", () => {
     it("defaults to true", () => {
       expect(computeUrlParams().echoCancellation).toBe(true);

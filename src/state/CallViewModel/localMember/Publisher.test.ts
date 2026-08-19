@@ -29,12 +29,15 @@ import { type Connection } from "../remoteMembers/Connection";
 import { type MuteStates } from "../../MuteStates";
 import {
   autoGainControlSetting,
+  deepFilterNetNoiseSuppression,
+  deepFilterNetNoiseSuppressionLevel,
   micCutoffEnabled,
   micCutoffThresholdDb,
   rnnoiseNoiseSuppression,
   rnnoiseNoiseSuppressionPreset,
 } from "../../../settings/settings";
 import type { RNNoiseProcessor } from "../../../audio/RNNoiseProcessor";
+import type { DeepFilterNetProcessor } from "../../../audio/DeepFilterNetProcessor";
 import { MIC_CUTOFF_DEFAULT_DB } from "../../../audio/microphoneGate";
 
 let scope: ObservableScope;
@@ -815,6 +818,166 @@ describe("Publisher", () => {
       }
 
       expect(micCutoffEnabled.getValue()).toBe(false);
+    });
+  });
+
+  describe("DeepFilterNet", () => {
+    beforeEach(() => {
+      vi.stubGlobal("AudioWorkletNode", class AudioWorkletNode {});
+      vi.stubGlobal(
+        "AudioWorklet",
+        class AudioWorklet {
+          public async addModule(): Promise<void> {
+            await Promise.resolve();
+          }
+        },
+      );
+      vi.stubGlobal(
+        "MediaStreamAudioDestinationNode",
+        class MediaStreamAudioDestinationNode {},
+      );
+      vi.stubGlobal(
+        "MediaStreamAudioSourceNode",
+        class MediaStreamAudioSourceNode {},
+      );
+      vi.stubGlobal(
+        "AudioContext",
+        class AudioContext {
+          public sampleRate = 48000;
+          public state: AudioContextState = "running";
+          public audioWorklet = {
+            addModule: vi.fn().mockResolvedValue(undefined),
+          };
+          public createMediaStreamSource = vi.fn();
+          public createMediaStreamDestination = vi.fn();
+          public close = vi.fn().mockResolvedValue(undefined);
+          public resume = vi.fn().mockResolvedValue(undefined);
+        },
+      );
+      vi.stubGlobal("WebAssembly", {});
+      deepFilterNetNoiseSuppression.setValue(false);
+      deepFilterNetNoiseSuppressionLevel.setValue(0.75);
+    });
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      deepFilterNetNoiseSuppression.setValue(false);
+      deepFilterNetNoiseSuppressionLevel.setValue(0.75);
+      rnnoiseNoiseSuppression.setValue(false);
+    });
+
+    function publishMicTrack(): LocalTrack & {
+      setProcessor: (...args: unknown[]) => Promise<void>;
+      stopProcessor: () => void;
+      restartTrack: (...args: unknown[]) => void;
+      getProcessor: () => unknown;
+    } {
+      const micTrack = createMockLocalTrack(
+        Track.Source.Microphone,
+      ) as LocalTrack & {
+        setProcessor: (...args: unknown[]) => Promise<void>;
+        stopProcessor: () => void;
+        restartTrack: (...args: unknown[]) => void;
+        getProcessor: () => unknown;
+      };
+      trackPublications.push({
+        source: Track.Source.Microphone,
+        track: micTrack,
+        audioTrack: micTrack,
+      } as unknown as LocalTrackPublication);
+      localParticipant.emit(
+        ParticipantEvent.LocalTrackPublished,
+        trackPublications[0],
+      );
+      return micTrack;
+    }
+
+    it("enabling setting applies DeepFilterNet processor on microphone track", async () => {
+      const micTrack = publishMicTrack();
+
+      deepFilterNetNoiseSuppression.setValue(true);
+      await flushPromises();
+
+      expect(micTrack.setProcessor).toHaveBeenCalledOnce();
+    });
+
+    it("disabling setting removes DeepFilterNet processor on microphone track", async () => {
+      const micTrack = publishMicTrack();
+
+      deepFilterNetNoiseSuppression.setValue(true);
+      await flushPromises();
+      deepFilterNetNoiseSuppression.setValue(false);
+      await flushPromises();
+
+      expect(micTrack.setProcessor).toHaveBeenCalledOnce();
+      expect(micTrack.stopProcessor).toHaveBeenCalledOnce();
+    });
+
+    it("restarts microphone track with native noise suppression disabled when DeepFilterNet is enabled", async () => {
+      const micTrack = publishMicTrack();
+
+      deepFilterNetNoiseSuppression.setValue(true);
+      await flushPromises();
+
+      expect(micTrack.restartTrack).toHaveBeenCalledWith(
+        expect.objectContaining({
+          noiseSuppression: false,
+        }),
+      );
+    });
+
+    it("updates active DeepFilterNet processor level when level setting changes", async () => {
+      const micTrack = publishMicTrack();
+
+      deepFilterNetNoiseSuppression.setValue(true);
+      await flushPromises();
+
+      const processor = micTrack.getProcessor() as DeepFilterNetProcessor;
+      expect(processor).toBeDefined();
+      const setSuppressionLevelSpy = vi.spyOn(processor, "setSuppressionLevel");
+
+      deepFilterNetNoiseSuppressionLevel.setValue(0.5);
+      await flushPromises();
+
+      expect(setSuppressionLevelSpy).toHaveBeenCalledWith(0.5);
+    });
+
+    it("stops any existing processor before attaching DeepFilterNet (mutual exclusion)", async () => {
+      const micTrack = publishMicTrack();
+
+      // First attach an RNNoise processor.
+      rnnoiseNoiseSuppression.setValue(true);
+      await flushPromises();
+      expect(micTrack.setProcessor).toHaveBeenCalledOnce();
+
+      // Then enable DeepFilterNet; it should stop the existing processor
+      // before attaching itself.
+      vi.mocked(micTrack.stopProcessor).mockClear();
+      vi.mocked(micTrack.setProcessor).mockClear();
+      deepFilterNetNoiseSuppression.setValue(true);
+      for (let i = 0; i < 5; i++) {
+        await flushPromises();
+      }
+
+      expect(micTrack.stopProcessor).toHaveBeenCalled();
+      const processors = vi
+        .mocked(micTrack.setProcessor)
+        .mock.calls.map((call) => (call[0] as { name: string }).name);
+      expect(processors).toContain("deepfilternet-noise-suppression");
+    });
+
+    it("auto-disables the DeepFilterNet setting when processor setup fails", async () => {
+      const micTrack = publishMicTrack();
+      vi.mocked(micTrack.setProcessor).mockRejectedValueOnce(
+        new Error("deepfilternet setup failed"),
+      );
+
+      deepFilterNetNoiseSuppression.setValue(true);
+      for (let i = 0; i < 5; i++) {
+        await flushPromises();
+      }
+
+      expect(deepFilterNetNoiseSuppression.getValue()).toBe(false);
     });
   });
 });
