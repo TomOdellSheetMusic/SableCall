@@ -361,7 +361,7 @@ export const SettingsModal: FC<Props> = ({
                 : t("settings.audio_tab.deepfilternet_not_supported")
             }
             type="checkbox"
-            checked={dfEnabled}
+            checked={effectiveDfEnabled}
             onChange={(e): void => setDfEnabled(e.target.checked)}
             disabled={!supported}
           />
