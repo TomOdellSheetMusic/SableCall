@@ -44,6 +44,7 @@ import {
 import {
   DeepFilterNetProcessor,
   DEEPFILTERNET_PROCESSOR_NAME,
+  setDeepFilterNetError,
   supportsDeepFilterNetProcessor,
 } from "../../../audio/DeepFilterNetProcessor.ts";
 import { shouldEnableNativeNoiseSuppression } from "../../../audio/noiseSuppressionPolicy.ts";
@@ -803,6 +804,10 @@ export class Publisher {
       }
     } catch (e) {
       this.logger.error("Failed to apply DeepFilterNet audio processor", e);
+      // Surface the error to the settings UI so the user sees why the
+      // processor could not be enabled, instead of the checkbox silently
+      // toggling back off.
+      setDeepFilterNetError(e instanceof Error ? e.message : String(e));
       if (dfEnabled && deepFilterNetNoiseSuppression.getValue()) {
         this.logger.warn(
           "Disabling DeepFilterNet setting after processor setup failure",

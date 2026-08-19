@@ -74,7 +74,10 @@ import {
   microphoneInputLevelDb$,
   supportsRNNoiseProcessor,
 } from "../audio/RNNoiseProcessor";
-import { supportsDeepFilterNetProcessor } from "../audio/DeepFilterNetProcessor";
+import {
+  deepFilterNetError$,
+  supportsDeepFilterNetProcessor,
+} from "../audio/DeepFilterNetProcessor";
 import {
   type RNNoiseSuppressionPreset,
   rnnoiseSuppressionPresets,
@@ -339,6 +342,7 @@ export const SettingsModal: FC<Props> = ({
     );
     const [dfLevelRaw, setDfLevelRaw] = useState(dfLevel);
     const effectiveDfEnabled = supported && !!dfEnabled;
+    const dfError = useBehavior(deepFilterNetError$);
 
     useEffect(() => {
       setDfLevelRaw(dfLevel);
@@ -362,6 +366,13 @@ export const SettingsModal: FC<Props> = ({
             disabled={!supported}
           />
         </FieldRow>
+        {dfError && (
+          <p className={styles.deepFilterNetError} role="alert">
+            {t("settings.audio_tab.deepfilternet_error", {
+              error: dfError,
+            })}
+          </p>
+        )}
         {effectiveDfEnabled && (
           <div className={styles.volumeSlider}>
             <label>

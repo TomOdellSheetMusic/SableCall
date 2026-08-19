@@ -21,6 +21,12 @@ Please see LICENSE in the repository root for full details.
   margin-bottom: 0;
 }
 
+.deepFilterNetError {
+  color: var(--cpd-color-text-critical-primary);
+  margin-top: var(--cpd-space-2x);
+  margin-bottom: 0;
+}
+
 .cutoffFieldRow + .volumeSlider {
   margin-bottom: var(--cpd-space-8x);
 }

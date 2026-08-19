@@ -7,12 +7,14 @@ Please see LICENSE in the repository root for full details.
 
 import { DeepFilterNoiseFilterProcessor } from "deepfilternet3-noise-filter";
 import { logger } from "matrix-js-sdk/lib/logger";
+import { BehaviorSubject } from "rxjs";
 
 import type {
   AudioProcessorOptions,
   Track,
   TrackProcessor,
 } from "livekit-client";
+import type { Behavior } from "../state/Behavior";
 
 /**
  * The sample rate DeepFilterNet is trained for.
@@ -28,6 +30,23 @@ const DEFAULT_NOISE_REDUCTION_LEVEL = 0.75;
  * The name used to identify this processor on a LiveKit track.
  */
 export const DEEPFILTERNET_PROCESSOR_NAME = "deepfilternet-noise-suppression";
+
+const _deepFilterNetError$ = new BehaviorSubject<string | null>(null);
+/**
+ * The most recent DeepFilterNet setup error message, or null when the last
+ * setup attempt succeeded. Used by the settings UI to render an error instead
+ * of silently toggling the setting back off.
+ */
+export const deepFilterNetError$: Behavior<string | null> =
+  _deepFilterNetError$;
+
+/**
+ * Publishes a DeepFilterNet setup error message (or null to clear it) to
+ * `deepFilterNetError$`. Used by the Publisher when processor setup fails.
+ */
+export function setDeepFilterNetError(error: string | null): void {
+  _deepFilterNetError$.next(error);
+}
 
 /**
  * The base path where the DeepFilterNet WASM binary and ONNX model are served
