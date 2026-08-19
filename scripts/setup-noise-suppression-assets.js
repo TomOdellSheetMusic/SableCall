@@ -162,6 +162,18 @@ async function main() {
       await downloadFile(file.url, file.path, file.optional);
     }
 
+    // Fail hard if any required asset is missing or empty. This guarantees the
+    // build never silently ships without the DeepFilterNet WASM/model (which
+    // would otherwise only fail at runtime on the user's device).
+    const requiredFiles = FILES_TO_DOWNLOAD.filter((f) => !f.optional);
+    for (const file of requiredFiles) {
+      if (!fs.existsSync(file.path) || fs.statSync(file.path).size === 0) {
+        throw new Error(
+          `Required asset missing or empty after setup: ${file.path}`,
+        );
+      }
+    }
+
     console.log("\n✅ Asset setup complete!");
     console.log(
       "\nAssets are ready for bundling. Next build will include them.\n",
