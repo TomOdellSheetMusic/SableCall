@@ -40,12 +40,15 @@ if (typeof TextDecoder === "undefined") {
     public decode(bytes?: Uint8Array): string {
       if (!bytes) return "";
       const u8 =
-        bytes instanceof Uint8Array ? bytes : new Uint8Array((bytes as { buffer: ArrayBuffer }).buffer);
+        bytes instanceof Uint8Array
+          ? bytes
+          : new Uint8Array((bytes as { buffer: ArrayBuffer }).buffer);
       let out = "";
       for (let i = 0; i < u8.length; ) {
         const c = u8[i++];
         if (c < 0x80) out += String.fromCharCode(c);
-        else if (c < 0xe0) out += String.fromCharCode(((c & 0x1f) << 6) | (u8[i++] & 0x3f));
+        else if (c < 0xe0)
+          out += String.fromCharCode(((c & 0x1f) << 6) | (u8[i++] & 0x3f));
         else if (c < 0xf0)
           out += String.fromCharCode(
             ((c & 0x0f) << 12) | ((u8[i++] & 0x3f) << 6) | (u8[i++] & 0x3f),
@@ -57,7 +60,10 @@ if (typeof TextDecoder === "undefined") {
               ((u8[i++] & 0x3f) << 6) |
               (u8[i++] & 0x3f)) -
             0x10000;
-          out += String.fromCharCode(0xd800 + (cp >> 10), 0xdc00 + (cp & 0x3ff));
+          out += String.fromCharCode(
+            0xd800 + (cp >> 10),
+            0xdc00 + (cp & 0x3ff),
+          );
         }
       }
       return out;
@@ -75,8 +81,18 @@ if (typeof TextEncoder === "undefined") {
         else if (c >= 0xd800 && c < 0xdc00) {
           const c2 = str.charCodeAt(++i);
           c = 0x10000 + ((c & 0x3ff) << 10) + (c2 & 0x3ff);
-          out.push(0xf0 | (c >> 18), 0x80 | ((c >> 12) & 0x3f), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3f));
-        } else out.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3f));
+          out.push(
+            0xf0 | (c >> 18),
+            0x80 | ((c >> 12) & 0x3f),
+            0x80 | ((c >> 6) & 0x3f),
+            0x80 | (c & 0x3f),
+          );
+        } else
+          out.push(
+            0xe0 | (c >> 12),
+            0x80 | ((c >> 6) & 0x3f),
+            0x80 | (c & 0x3f),
+          );
       }
       return new Uint8Array(out);
     }
@@ -90,13 +106,19 @@ let cachedFloat32ArrayMemory0: Float32Array | null = null;
 let cachedUint8ArrayMemory0: Uint8Array | null = null;
 
 function getFloat32ArrayMemory0(): Float32Array {
-  if (cachedFloat32ArrayMemory0 === null || cachedFloat32ArrayMemory0.byteLength === 0) {
+  if (
+    cachedFloat32ArrayMemory0 === null ||
+    cachedFloat32ArrayMemory0.byteLength === 0
+  ) {
     cachedFloat32ArrayMemory0 = new Float32Array(wasm.memory.buffer);
   }
   return cachedFloat32ArrayMemory0;
 }
 function getUint8ArrayMemory0(): Uint8Array {
-  if (cachedUint8ArrayMemory0 === null || cachedUint8ArrayMemory0.byteLength === 0) {
+  if (
+    cachedUint8ArrayMemory0 === null ||
+    cachedUint8ArrayMemory0.byteLength === 0
+  ) {
     cachedUint8ArrayMemory0 = new Uint8Array(wasm.memory.buffer);
   }
   return cachedUint8ArrayMemory0;
@@ -117,7 +139,10 @@ function addToExternrefTable0(obj: unknown): number {
   wasm.__wbindgen_externrefs.set(idx, obj);
   return idx;
 }
-function handleError(f: (...args: number[]) => unknown, args: number[]): unknown {
+function handleError(
+  f: (...args: number[]) => unknown,
+  args: number[],
+): unknown {
   try {
     return f.apply(null, args);
   } catch (e) {
@@ -125,41 +150,67 @@ function handleError(f: (...args: number[]) => unknown, args: number[]): unknown
     wasm.__wbindgen_exn_store_command_export(idx);
   }
 }
-function passArray8ToWasm0(arg: Uint8Array, malloc: (n: number, a: number) => number): number {
+function passArray8ToWasm0(
+  arg: Uint8Array,
+  malloc: (n: number, a: number) => number,
+): number {
   const ptr = malloc(arg.length * 1, 1) >>> 0;
   getUint8ArrayMemory0().set(arg, ptr / 1);
   WASM_VECTOR_LEN = arg.length;
   return ptr;
 }
-function passArrayF32ToWasm0(arg: Float32Array, malloc: (n: number, a: number) => number): number {
+function passArrayF32ToWasm0(
+  arg: Float32Array,
+  malloc: (n: number, a: number) => number,
+): number {
   const ptr = malloc(arg.length * 4, 4) >>> 0;
   getFloat32ArrayMemory0().set(arg, ptr / 4);
   WASM_VECTOR_LEN = arg.length;
   return ptr;
 }
-let cachedTextDecoder = new TextDecoder("utf-8", { ignoreBOM: true, fatal: true });
+let cachedTextDecoder = new TextDecoder("utf-8", {
+  ignoreBOM: true,
+  fatal: true,
+});
 cachedTextDecoder.decode();
 let numBytesDecoded = 0;
 function decodeText(ptr: number, len: number): string {
   numBytesDecoded += len;
   if (numBytesDecoded >= 2146435072) {
-    cachedTextDecoder = new TextDecoder("utf-8", { ignoreBOM: true, fatal: true });
+    cachedTextDecoder = new TextDecoder("utf-8", {
+      ignoreBOM: true,
+      fatal: true,
+    });
     cachedTextDecoder.decode();
     numBytesDecoded = len;
   }
-  return cachedTextDecoder.decode(getUint8ArrayMemory0().subarray(ptr, ptr + len));
+  return cachedTextDecoder.decode(
+    getUint8ArrayMemory0().subarray(ptr, ptr + len),
+  );
 }
 function __wbg_get_imports(): WebAssembly.Imports {
   const import0 = {
-    __wbg___wbindgen_throw_344f42d3211c4765: (arg0: number, arg1: number): void => {
+    __wbg___wbindgen_throw_344f42d3211c4765: (
+      arg0: number,
+      arg1: number,
+    ): void => {
       throw new Error(getStringFromWasm0(arg0, arg1));
     },
-    __wbg_getRandomValues_cc7f052a444bb2ce: (arg0: number, arg1: number): void => {
-      handleError((a0: number, a1: number) => {
-        globalThis.crypto.getRandomValues(getArrayU8FromWasm0(a0, a1));
-      }, [arg0, arg1]);
+    __wbg_getRandomValues_cc7f052a444bb2ce: (
+      arg0: number,
+      arg1: number,
+    ): void => {
+      handleError(
+        (a0: number, a1: number) => {
+          globalThis.crypto.getRandomValues(getArrayU8FromWasm0(a0, a1));
+        },
+        [arg0, arg1],
+      );
     },
-    __wbg_new_from_slice_ddf8b82c4d6af38e: (arg0: number, arg1: number): Float32Array => {
+    __wbg_new_from_slice_ddf8b82c4d6af38e: (
+      arg0: number,
+      arg1: number,
+    ): Float32Array => {
       return new Float32Array(getArrayF32FromWasm0(arg0, arg1));
     },
     __wbindgen_init_externref_table: (): void => {
@@ -174,7 +225,10 @@ function __wbg_get_imports(): WebAssembly.Imports {
   };
   return { "./df_bg.js": import0 } as unknown as WebAssembly.Imports;
 }
-function __wbg_finalize_init(instance: WebAssembly.Instance, _module: WebAssembly.Module): any {
+function __wbg_finalize_init(
+  instance: WebAssembly.Instance,
+  _module: WebAssembly.Module,
+): any {
   wasm = instance.exports;
   cachedFloat32ArrayMemory0 = null;
   cachedUint8ArrayMemory0 = null;
@@ -188,7 +242,10 @@ function initSync(module: WebAssembly.Module): any {
   return __wbg_finalize_init(instance, module);
 }
 function df_create(model_bytes: Uint8Array, atten_lim: number): number {
-  const ptr0 = passArray8ToWasm0(model_bytes, wasm.__wbindgen_malloc_command_export);
+  const ptr0 = passArray8ToWasm0(
+    model_bytes,
+    wasm.__wbindgen_malloc_command_export,
+  );
   const len0 = WASM_VECTOR_LEN;
   const ret = wasm.df_create(ptr0, len0, atten_lim);
   return ret >>> 0;
@@ -198,7 +255,10 @@ function df_get_frame_length(st: number): number {
   return ret >>> 0;
 }
 function df_process_frame(st: number, input: Float32Array): Float32Array {
-  const ptr0 = passArrayF32ToWasm0(input, wasm.__wbindgen_malloc_command_export);
+  const ptr0 = passArrayF32ToWasm0(
+    input,
+    wasm.__wbindgen_malloc_command_export,
+  );
   const len0 = WASM_VECTOR_LEN;
   const ret = wasm.df_process_frame(st, ptr0, len0);
   return ret;
@@ -278,7 +338,10 @@ class DeepFilterNetWorkletProcessor extends AudioWorkletProcessor {
     super();
     this.sampleRate = sampleRate;
     this.upsampler = new Resampler(this.sampleRate, DEEPFILTERNET_SAMPLE_RATE);
-    this.downsampler = new Resampler(DEEPFILTERNET_SAMPLE_RATE, this.sampleRate);
+    this.downsampler = new Resampler(
+      DEEPFILTERNET_SAMPLE_RATE,
+      this.sampleRate,
+    );
     this.tempFrame = new Float32Array(0);
 
     const processorOptions = (options?.processorOptions ?? {}) as {
@@ -312,8 +375,7 @@ class DeepFilterNetWorkletProcessor extends AudioWorkletProcessor {
       this.port.onmessage = (event: MessageEvent<WorkletMessage>): void => {
         this.handleMessage(event.data);
       };
-    } catch (error) {
-      console.error("Failed to initialize DeepFilterNet in AudioWorklet:", error);
+    } catch {
       this.isInitialized = false;
     }
   }
@@ -336,16 +398,30 @@ class DeepFilterNetWorkletProcessor extends AudioWorkletProcessor {
   }
 
   private getInputAvailable(): number {
-    return (this.inputWritePos - this.inputReadPos + this.inputBuffer.length) % this.inputBuffer.length;
+    return (
+      (this.inputWritePos - this.inputReadPos + this.inputBuffer.length) %
+      this.inputBuffer.length
+    );
   }
   private getResampledAvailable(): number {
-    return (this.resampledWritePos - this.resampledReadPos + this.resampledBuffer.length) % this.resampledBuffer.length;
+    return (
+      (this.resampledWritePos -
+        this.resampledReadPos +
+        this.resampledBuffer.length) %
+      this.resampledBuffer.length
+    );
   }
   private getOutputAvailable(): number {
-    return (this.outputWritePos - this.outputReadPos + this.outputBuffer.length) % this.outputBuffer.length;
+    return (
+      (this.outputWritePos - this.outputReadPos + this.outputBuffer.length) %
+      this.outputBuffer.length
+    );
   }
 
-  public process(inputList: Float32Array[][], outputList: Float32Array[][]): boolean {
+  public process(
+    inputList: Float32Array[][],
+    outputList: Float32Array[][],
+  ): boolean {
     if (this.destroyed) return false;
 
     const input = inputList[0]?.[0];
@@ -379,11 +455,14 @@ class DeepFilterNetWorkletProcessor extends AudioWorkletProcessor {
         chunk[i] = this.inputBuffer[this.inputReadPos];
         this.inputReadPos = (this.inputReadPos + 1) % this.inputBuffer.length;
       }
-      const resampled = new Float32Array(Math.ceil(avail * (DEEPFILTERNET_SAMPLE_RATE / this.sampleRate)) + 2);
+      const resampled = new Float32Array(
+        Math.ceil(avail * (DEEPFILTERNET_SAMPLE_RATE / this.sampleRate)) + 2,
+      );
       this.upsampler.process(chunk, resampled);
       for (let i = 0; i < resampled.length; i++) {
         this.resampledBuffer[this.resampledWritePos] = resampled[i];
-        this.resampledWritePos = (this.resampledWritePos + 1) % this.resampledBuffer.length;
+        this.resampledWritePos =
+          (this.resampledWritePos + 1) % this.resampledBuffer.length;
       }
     }
 
@@ -392,15 +471,21 @@ class DeepFilterNetWorkletProcessor extends AudioWorkletProcessor {
     while (this.getResampledAvailable() >= frameLength) {
       for (let i = 0; i < frameLength; i++) {
         this.tempFrame[i] = this.resampledBuffer[this.resampledReadPos];
-        this.resampledReadPos = (this.resampledReadPos + 1) % this.resampledBuffer.length;
+        this.resampledReadPos =
+          (this.resampledReadPos + 1) % this.resampledBuffer.length;
       }
       const processed = df_process_frame(this.dfModel.handle, this.tempFrame);
       // Downsample the processed 48kHz frame back to the native rate.
-      const down = new Float32Array(Math.ceil(processed.length * (this.sampleRate / DEEPFILTERNET_SAMPLE_RATE)) + 2);
+      const down = new Float32Array(
+        Math.ceil(
+          processed.length * (this.sampleRate / DEEPFILTERNET_SAMPLE_RATE),
+        ) + 2,
+      );
       this.downsampler.process(processed, down);
       for (let i = 0; i < down.length; i++) {
         this.outputBuffer[this.outputWritePos] = down[i];
-        this.outputWritePos = (this.outputWritePos + 1) % this.outputBuffer.length;
+        this.outputWritePos =
+          (this.outputWritePos + 1) % this.outputBuffer.length;
       }
     }
 
@@ -419,7 +504,8 @@ class DeepFilterNetWorkletProcessor extends AudioWorkletProcessor {
           }
         }
       }
-      this.outputReadPos = (this.outputReadPos + blockSize) % this.outputBuffer.length;
+      this.outputReadPos =
+        (this.outputReadPos + blockSize) % this.outputBuffer.length;
     }
 
     return true;

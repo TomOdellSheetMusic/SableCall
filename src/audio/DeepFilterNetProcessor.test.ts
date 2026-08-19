@@ -117,7 +117,8 @@ describe("DeepFilterNetProcessor", () => {
     const processor = new DeepFilterNetProcessor();
     await processor.init({ track: mockTrack } as never);
 
-    const context = MockAudioContextSpy.mock.results[0].value as MockAudioContext;
+    const context = MockAudioContextSpy.mock.results[0]
+      .value as MockAudioContext;
     expect(context.audioWorklet.addModule).toHaveBeenCalledWith(
       WORKLET_MODULE_URL,
     );

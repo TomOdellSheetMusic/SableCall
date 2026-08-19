@@ -15,6 +15,7 @@ import type { ReactNode } from "react";
 import { SettingsModal } from "./SettingsModal";
 import {
   deepFilterNetNoiseSuppression,
+  deepFilterNetNoiseSuppressionError,
   deepFilterNetNoiseSuppressionLevel,
   micCutoffEnabled,
   micCutoffThresholdDb,
@@ -258,6 +259,7 @@ describe("SettingsModal DeepFilterNet controls", () => {
     mockRequestDeviceNames.mockClear();
     deepFilterNetNoiseSuppression.setValue(false);
     deepFilterNetNoiseSuppressionLevel.setValue(0.75);
+    deepFilterNetNoiseSuppressionError.setValue(null);
     vi.mocked(supportsDeepFilterNetProcessor).mockReturnValue(true);
   });
 
@@ -316,5 +318,15 @@ describe("SettingsModal DeepFilterNet controls", () => {
     await user.click(checkbox);
 
     expect(screen.getByText(/Noise reduction level/)).toBeInTheDocument();
+  });
+
+  it("renders the stored DeepFilterNet error message", () => {
+    deepFilterNetNoiseSuppressionError.setValue("Failed to fetch WASM: 404");
+
+    renderSettingsModal();
+
+    expect(
+      screen.getByText(/DeepFilterNet could not be enabled: Failed to fetch WASM: 404/),
+    ).toBeInTheDocument();
   });
 });

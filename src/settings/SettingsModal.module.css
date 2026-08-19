@@ -65,3 +65,10 @@ Please see LICENSE in the repository root for full details.
   font-weight: normal;
   color: var(--cpd-color-text-secondary);
 }
+
+.deepFilterNetError {
+  color: var(--cpd-color-text-critical-primary);
+  font-size: var(--font-size-micro);
+  margin-top: var(--cpd-space-1x);
+  word-break: break-word;
+}

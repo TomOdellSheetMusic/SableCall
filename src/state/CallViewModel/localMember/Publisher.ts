@@ -50,6 +50,7 @@ import { shouldEnableNativeNoiseSuppression } from "../../../audio/noiseSuppress
 import {
   autoGainControlSetting,
   deepFilterNetNoiseSuppression,
+  deepFilterNetNoiseSuppressionError,
   deepFilterNetNoiseSuppressionLevel,
   echoCancellationSetting,
   micCutoffEnabled,
@@ -787,7 +788,8 @@ export class Publisher {
       if (dfEnabled) {
         if (dfProcessor) {
           dfProcessor.setSuppressionLevel(dfLevel);
-          await dfProcessor.setEnabled(true);
+          dfProcessor.setEnabled(true);
+          deepFilterNetNoiseSuppressionError.setValue(null);
           return;
         }
 
@@ -799,17 +801,17 @@ export class Publisher {
         await microphoneTrack.setProcessor(
           new DeepFilterNetProcessor(dfLevel, true),
         );
+        deepFilterNetNoiseSuppressionError.setValue(null);
       } else if (processorActive) {
         await microphoneTrack.stopProcessor();
       }
     } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
       this.logger.error("Failed to apply DeepFilterNet audio processor", e);
-      if (dfEnabled && deepFilterNetNoiseSuppression.getValue()) {
-        this.logger.warn(
-          "Disabling DeepFilterNet setting after processor setup failure",
-        );
-        deepFilterNetNoiseSuppression.setValue(false);
-      }
+      // Store the error so the settings UI can render it, and keep the
+      // setting enabled so the user can see why it is not working rather than
+      // having it silently turn itself off.
+      deepFilterNetNoiseSuppressionError.setValue(message);
     }
   }
 }

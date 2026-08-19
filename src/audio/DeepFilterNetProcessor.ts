@@ -270,7 +270,7 @@ export class DeepFilterNetProcessor implements TrackProcessor<
   /**
    * Enables or disables noise suppression without tearing down the processor.
    */
-  public async setEnabled(enabled: boolean): Promise<void> {
+  public setEnabled(enabled: boolean): void {
     this.enabled = enabled;
     this.workletNode?.port.postMessage({
       type: "setBypass",
@@ -278,4 +278,3 @@ export class DeepFilterNetProcessor implements TrackProcessor<
     });
   }
 }
-

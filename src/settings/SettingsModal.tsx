@@ -60,6 +60,7 @@ import {
   micCutoffThresholdDb as micCutoffThresholdDbSetting,
   deepFilterNetNoiseSuppression as deepFilterNetNoiseSuppressionSetting,
   deepFilterNetNoiseSuppressionLevel as deepFilterNetNoiseSuppressionLevelSetting,
+  deepFilterNetNoiseSuppressionError as deepFilterNetNoiseSuppressionErrorSetting,
 } from "./settings";
 import { PreferencesSettingsTab } from "./PreferencesSettingsTab";
 import { Slider } from "../Slider";
@@ -338,6 +339,7 @@ export const SettingsModal: FC<Props> = ({
       deepFilterNetNoiseSuppressionLevelSetting,
     );
     const [dfLevelRaw, setDfLevelRaw] = useState(dfLevel);
+    const dfError = useBehavior(deepFilterNetNoiseSuppressionErrorSetting.value$);
     const effectiveDfEnabled = supported && !!dfEnabled;
 
     useEffect(() => {
@@ -362,6 +364,13 @@ export const SettingsModal: FC<Props> = ({
             disabled={!supported}
           />
         </FieldRow>
+        {dfError && (
+          <p className={styles.deepFilterNetError}>
+            {t("settings.audio_tab.deepfilternet_error", {
+              error: dfError,
+            })}
+          </p>
+        )}
         {effectiveDfEnabled && (
           <div className={styles.volumeSlider}>
             <label>

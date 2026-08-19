@@ -30,6 +30,7 @@ import { type MuteStates } from "../../MuteStates";
 import {
   autoGainControlSetting,
   deepFilterNetNoiseSuppression,
+  deepFilterNetNoiseSuppressionError,
   deepFilterNetNoiseSuppressionLevel,
   micCutoffEnabled,
   micCutoffThresholdDb,
@@ -857,12 +858,14 @@ describe("Publisher", () => {
       vi.stubGlobal("WebAssembly", {});
       deepFilterNetNoiseSuppression.setValue(false);
       deepFilterNetNoiseSuppressionLevel.setValue(0.75);
+      deepFilterNetNoiseSuppressionError.setValue(null);
     });
 
     afterEach(() => {
       vi.unstubAllGlobals();
       deepFilterNetNoiseSuppression.setValue(false);
       deepFilterNetNoiseSuppressionLevel.setValue(0.75);
+      deepFilterNetNoiseSuppressionError.setValue(null);
       rnnoiseNoiseSuppression.setValue(false);
     });
 
@@ -966,7 +969,7 @@ describe("Publisher", () => {
       expect(processors).toContain("deepfilternet-noise-suppression");
     });
 
-    it("auto-disables the DeepFilterNet setting when processor setup fails", async () => {
+    it("stores the error message when processor setup fails instead of disabling the setting", async () => {
       const micTrack = publishMicTrack();
       vi.mocked(micTrack.setProcessor).mockRejectedValueOnce(
         new Error("deepfilternet setup failed"),
@@ -977,7 +980,11 @@ describe("Publisher", () => {
         await flushPromises();
       }
 
-      expect(deepFilterNetNoiseSuppression.getValue()).toBe(false);
+      // The setting stays enabled so the user can see the error in the UI.
+      expect(deepFilterNetNoiseSuppression.getValue()).toBe(true);
+      expect(deepFilterNetNoiseSuppressionError.getValue()).toBe(
+        "deepfilternet setup failed",
+      );
     });
   });
 });

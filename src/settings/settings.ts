@@ -145,6 +145,17 @@ export const deepFilterNetNoiseSuppressionLevel = new Setting<number>(
   0.75,
 );
 
+/**
+ * The last error encountered while setting up the DeepFilterNet processor, or
+ * null if the last attempt succeeded. Rendered in the settings UI so users can
+ * see why DeepFilterNet could not be enabled (e.g. on platforms where the
+ * WASM/model cannot be loaded).
+ */
+export const deepFilterNetNoiseSuppressionError = new Setting<string | null>(
+  "deepfilternet-noise-suppression-error",
+  null,
+);
+
 export const micCutoffEnabled = new Setting<boolean>(
   "mic-cutoff-enabled",
   false,
