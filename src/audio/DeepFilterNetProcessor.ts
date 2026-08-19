@@ -119,6 +119,12 @@ export class DeepFilterNetProcessor implements TrackProcessor<
   public async init(opts: AudioProcessorOptions): Promise<void> {
     const processor = this.ensureProcessor();
     try {
+      // Reuse the AudioContext that LiveKit already created for this track
+      // instead of letting the package spin up its own (which can fail on
+      // desktop WebViews, e.g. when requesting a non-default sample rate).
+      if (opts.audioContext) {
+        processor.audioContext = opts.audioContext;
+      }
       await processor.init({ track: opts.track });
       this.processedTrack = processor.processedTrack;
     } catch (e) {
@@ -130,6 +136,9 @@ export class DeepFilterNetProcessor implements TrackProcessor<
   public async restart(opts: AudioProcessorOptions): Promise<void> {
     const processor = this.ensureProcessor();
     try {
+      if (opts.audioContext) {
+        processor.audioContext = opts.audioContext;
+      }
       await processor.restart({ track: opts.track });
       this.processedTrack = processor.processedTrack;
     } catch (e) {
