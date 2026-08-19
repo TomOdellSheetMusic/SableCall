@@ -111,7 +111,11 @@ function downloadFile(fileUrl, filePath, isOptional = false) {
           const actualSize = fs.statSync(filePath).size;
           // Guard against truncated downloads: if the server told us the
           // expected size and we received fewer bytes, the file is corrupt.
-          if (Number.isFinite(expectedSize) && expectedSize > 0 && actualSize !== expectedSize) {
+          if (
+            Number.isFinite(expectedSize) &&
+            expectedSize > 0 &&
+            actualSize !== expectedSize
+          ) {
             fs.unlinkSync(filePath);
             reject(
               new Error(
