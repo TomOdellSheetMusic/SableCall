@@ -255,6 +255,8 @@
     "preferences_tab": {
       "developer_mode_label": "Developer mode",
       "developer_mode_label_description": "Enable developer mode and show developer settings tab.",
+      "hide_avatars_when_camera_off_description": "Hide avatar tiles of participants whose camera is off.",
+      "hide_avatars_when_camera_off_label": "Hide avatar tiles when camera is off",
       "introduction": "Here you can configure extra options for an improved experience.",
       "reactions_play_sound_description": "Play a sound effect when anyone sends a reaction into a call.",
       "reactions_play_sound_label": "Play reaction sounds",

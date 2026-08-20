@@ -61,6 +61,7 @@ import {
 import {
   duplicateTiles,
   echoCancellationSetting,
+  hideAvatarTilesWhenCameraOff,
   noiseSuppressionSetting,
   playReactionsSound,
   rnnoiseNoiseSuppression,
@@ -962,7 +963,29 @@ export function createCallViewModel$(
   );
 
   const grid$ = scope.behavior<UserMediaViewModel[]>(
-    userMedia$.pipe(
+    combineLatest([userMedia$, hideAvatarTilesWhenCameraOff.value$]).pipe(
+      switchMap(([mediaItems, hideAvatars]) =>
+        hideAvatars
+          ? // When enabled, only generate tiles for participants whose camera
+            // is on. Participants with their camera off remain audible but
+            // have no tile, keeping voice calls tidy.
+            mediaItems.length === 0
+            ? of([])
+            : combineLatest(
+                mediaItems.map((m) =>
+                  m.videoEnabled$.pipe(
+                    map((videoEnabled) => [m, videoEnabled] as const),
+                  ),
+                ),
+              ).pipe(
+                map((pairs) =>
+                  pairs
+                    .filter(([, videoEnabled]) => videoEnabled)
+                    .map(([m]) => m),
+                ),
+              )
+          : of(mediaItems),
+      ),
       switchMap((mediaItems) => {
         const bins = mediaItems.map((m) =>
           m.bin$.pipe(map((bin) => [m, bin] as const)),

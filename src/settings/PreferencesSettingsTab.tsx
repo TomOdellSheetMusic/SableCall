@@ -15,6 +15,7 @@ import {
   showReactions as showReactionsSetting,
   playReactionsSound as playReactionsSoundSetting,
   developerMode as developerModeSetting,
+  hideAvatarTilesWhenCameraOff as hideAvatarTilesWhenCameraOffSetting,
   useSetting,
 } from "./settings";
 
@@ -29,6 +30,9 @@ export const PreferencesSettingsTab: FC = () => {
   const [playReactionsSound, setPlayReactionSound] = useSetting(
     playReactionsSoundSetting,
   );
+
+  const [hideAvatarTilesWhenCameraOff, setHideAvatarTilesWhenCameraOff] =
+    useSetting(hideAvatarTilesWhenCameraOffSetting);
 
   const onChangeSetting = (
     e: ChangeEvent<HTMLInputElement>,
@@ -74,6 +78,20 @@ export const PreferencesSettingsTab: FC = () => {
           type="checkbox"
           checked={playReactionsSound}
           onChange={(e) => onChangeSetting(e, setPlayReactionSound)}
+        />
+      </FieldRow>
+      <FieldRow>
+        <InputField
+          id="hideAvatarsWhenCameraOff"
+          label={t(
+            "settings.preferences_tab.hide_avatars_when_camera_off_label",
+          )}
+          description={t(
+            "settings.preferences_tab.hide_avatars_when_camera_off_description",
+          )}
+          type="checkbox"
+          checked={hideAvatarTilesWhenCameraOff}
+          onChange={(e) => onChangeSetting(e, setHideAvatarTilesWhenCameraOff)}
         />
       </FieldRow>
       <FieldRow>
