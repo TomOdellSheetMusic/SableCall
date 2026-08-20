@@ -290,9 +290,9 @@
     "mute_for_me": "Mute for me",
     "muted_for_me": "Muted for me",
     "screen_share_volume": "Screen share volume",
+    "stop_watching": "Stop watching",
     "volume": "Volume",
     "waiting_for_media": "Waiting for media...",
-    "stop_watching": "Stop watching",
     "watch_stream": "Watch stream"
   }
 }

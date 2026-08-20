@@ -1062,7 +1062,7 @@ export function createCallViewModel$(
 
   const { setGridMode, gridMode$ } = createLayoutModeSwitch(scope, windowMode$);
 
-  // A single screen share can be focused (maximised) to fill the grid 
+  // A single screen share can be focused (maximised) to fill the grid
   const focusedStreamRequest$ = new Subject<ScreenShareViewModel | null>();
   const focusedStream$ = scope.behavior<ScreenShareViewModel | null>(
     focusedStreamRequest$.pipe(
@@ -1072,8 +1072,7 @@ export function createCallViewModel$(
           ? of(null)
           : screenShares$.pipe(
               map(
-                (shares) =>
-                  shares.find((s) => s.id === requested.id) ?? null,
+                (shares) => shares.find((s) => s.id === requested.id) ?? null,
               ),
               distinctUntilChanged(),
             ),

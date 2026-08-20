@@ -55,7 +55,9 @@ export function createRemoteScreenShare(
   const videoPublication$ = base.video$.pipe(map((ref) => ref?.publication));
   const audioPublication$ = inputs.participant$.pipe(
     switchMap((p) =>
-      p ? observeTrackReference$(p, Track.Source.ScreenShareAudio) : of(undefined),
+      p
+        ? observeTrackReference$(p, Track.Source.ScreenShareAudio)
+        : of(undefined),
     ),
     map((ref) => ref?.publication),
   );
@@ -99,8 +101,9 @@ export function createRemoteScreenShare(
       sink$: scope.behavior(
         combineLatest([inputs.participant$, audioTrackEvents$]).pipe(
           map(
-            ([p]) => (volume) =>
-              p?.setVolume(volume, Track.Source.ScreenShareAudio),
+            ([p]) =>
+              (volume) =>
+                p?.setVolume(volume, Track.Source.ScreenShareAudio),
           ),
         ),
       ),
