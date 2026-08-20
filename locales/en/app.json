@@ -204,6 +204,13 @@
     "audio_processing_description": "Changes apply on next call join.",
     "audio_processing_header": "Audio processing",
     "audio_tab": {
+      "deepfilternet_description": "Uses a deep-learning model to remove background noise such as keyboard, traffic, and other non-stationary sounds.",
+      "deepfilternet_error": "Could not enable AI noise suppression: {{error}}",
+      "deepfilternet_header": "AI noise suppression",
+      "deepfilternet_label": "Enable AI noise suppression (DeepFilterNet)",
+      "deepfilternet_level_description": "Higher levels remove more noise but can make your voice sound more processed.",
+      "deepfilternet_level_label": "Noise reduction level",
+      "deepfilternet_not_supported": "(AI noise suppression is not supported by this browser.)",
       "effect_volume_description": "Adjust the volume at which reactions and hand raised effects play.",
       "effect_volume_label": "Sound effect volume",
       "mic_cutoff_description": "Sound quieter than the cutoff volume will not be sent to other participants.",
