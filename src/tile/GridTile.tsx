@@ -542,7 +542,7 @@ const ScreenShareTileContent: FC<ScreenShareTileContentProps> = ({
   // stops watching the stream.
   const contentRef = useRef<HTMLDivElement | null>(null);
   const mergedRef = useMergedRefs(contentRef, ref);
-  
+
   const [frozenFrame, setFrozenFrame] = useState<string | null>(null);
 
   useEffect(() => {
@@ -629,9 +629,8 @@ const ScreenShareTileContent: FC<ScreenShareTileContentProps> = ({
       mxcAvatarUrl={mxcAvatarUrl}
       focusable={focusable}
       primaryButton={
-        onToggleFocusedStream === undefined && menu === undefined ? (
-          undefined
-        ) : (
+        onToggleFocusedStream === undefined &&
+        menu === undefined ? undefined : (
           <>
             {onToggleFocusedStream !== undefined && (
               <button
