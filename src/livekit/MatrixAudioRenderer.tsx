@@ -16,7 +16,10 @@ import {
 } from "@livekit/components-react";
 import { logger as rootLogger } from "matrix-js-sdk/lib/logger";
 
-import { useEarpieceAudioConfig, useMediaDevices } from "../MediaDevicesContext";
+import {
+  useEarpieceAudioConfig,
+  useMediaDevices,
+} from "../MediaDevicesContext";
 import { useReactiveState } from "../useReactiveState";
 import { useBehavior } from "../useBehavior";
 import { useObservableEagerState } from "observable-hooks";
@@ -181,7 +184,7 @@ export function LivekitRoomAudioRenderer({
         logger.warn("Unable to change sink for audio context", ex);
       });
     }
-  }, [audioContext, audioOutputId, controlledAudioDevices]);
+  }, [audioContext, audioOutputId, controlledAudioDevices, logger]);
 
   // Simple effects to update the gain and pan node based on the props
   useEffect(() => {
