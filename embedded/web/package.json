@@ -1,5 +1,5 @@
 {
-  "name": "@sableclient/sable-call-embedded",
+  "name": "@tomodellsheetmusic/sable-call-embedded",
   "version": "0.0.0",
   "files": [
     "README.md",
@@ -9,6 +9,6 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/SableClient/SableCall.git"
+    "url": "git+https://github.com/TomOdellSheetMusic/SableCall"
   }
 }
