@@ -146,8 +146,13 @@ export class DeepFilterNetProcessor implements TrackProcessor<
       }
       await processor.init({ track: opts.track });
       this.processedTrack = processor.processedTrack;
+      // Clear any previous error on a successful setup.
+      setDeepFilterNetError(null);
     } catch (e) {
       logger.error("[DeepFilterNetProcessor] init failed", e);
+      // Surface the error immediately so the settings UI can render it even
+      // if the caller (LiveKit setProcessor) swallows the rejection.
+      setDeepFilterNetError(e instanceof Error ? e.message : String(e));
       throw e;
     }
   }
@@ -160,8 +165,10 @@ export class DeepFilterNetProcessor implements TrackProcessor<
       }
       await processor.restart({ track: opts.track });
       this.processedTrack = processor.processedTrack;
+      setDeepFilterNetError(null);
     } catch (e) {
       logger.error("[DeepFilterNetProcessor] restart failed", e);
+      setDeepFilterNetError(e instanceof Error ? e.message : String(e));
       throw e;
     }
   }

@@ -20,6 +20,10 @@ import {
   rnnoiseNoiseSuppressionPreset,
 } from "./settings";
 import { supportsRNNoiseProcessor } from "../audio/RNNoiseProcessor";
+import {
+  setDeepFilterNetError,
+  supportsDeepFilterNetProcessor,
+} from "../audio/DeepFilterNetProcessor";
 import { MIC_CUTOFF_DEFAULT_DB } from "../audio/microphoneGate";
 
 const { mockRequestDeviceNames } = vi.hoisted(() => ({
@@ -32,6 +36,15 @@ vi.mock("../audio/RNNoiseProcessor", async () => {
   return {
     ...actual,
     supportsRNNoiseProcessor: vi.fn(() => true),
+  };
+});
+
+vi.mock("../audio/DeepFilterNetProcessor", async () => {
+  const actual = await vi.importActual("../audio/DeepFilterNetProcessor");
+
+  return {
+    ...actual,
+    supportsDeepFilterNetProcessor: vi.fn(() => true),
   };
 });
 
@@ -229,5 +242,57 @@ describe("SettingsModal RNNoise controls", () => {
       screen.getByText("(Microphone cutoff is not supported by this browser.)"),
     ).toBeInTheDocument();
     expect(screen.queryByText(/Cutoff volume/)).not.toBeInTheDocument();
+  });
+});
+
+describe("SettingsModal DeepFilterNet controls", () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      "ResizeObserver",
+      class ResizeObserver {
+        public observe(): void {}
+        public unobserve(): void {}
+        public disconnect(): void {}
+      },
+    );
+    localStorage.clear();
+    mockRequestDeviceNames.mockClear();
+    setDeepFilterNetError(null);
+    vi.mocked(supportsDeepFilterNetProcessor).mockReturnValue(true);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    setDeepFilterNetError(null);
+  });
+
+  it("renders the DeepFilterNet checkbox in the audio tab", () => {
+    renderSettingsModal();
+
+    expect(
+      screen.getByLabelText("Enable AI noise suppression (DeepFilterNet)"),
+    ).toBeInTheDocument();
+  });
+
+  it("renders the error message when DeepFilterNet setup fails", () => {
+    setDeepFilterNetError(
+      "wasm validation error: data segment shorter than declared",
+    );
+
+    renderSettingsModal();
+
+    expect(
+      screen.getByText(
+        "Could not enable AI noise suppression: wasm validation error: data segment shorter than declared",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("does not render an error message when there is no error", () => {
+    renderSettingsModal();
+
+    expect(
+      screen.queryByText(/Could not enable AI noise suppression/),
+    ).not.toBeInTheDocument();
   });
 });
