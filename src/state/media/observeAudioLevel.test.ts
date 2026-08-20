@@ -124,7 +124,7 @@ describe("observeSpeakingFromLevel$", () => {
 
   test("brief blip above threshold does not trigger speaking", async () => {
     sub = subscribeToSpeaking({ confirmMs: 300, dropOffMs: 1000 });
-    levels.next(0.2); // blip above threshold
+    levels.next(0.1); // blip above threshold
     await vi.advanceTimersByTimeAsync(100); // blip lasts 100ms < confirmMs
     levels.next(0.01); // back below threshold
     await vi.advanceTimersByTimeAsync(1000); // more than confirmMs
@@ -133,7 +133,7 @@ describe("observeSpeakingFromLevel$", () => {
 
   test("sustained voice becomes speaking after confirm period", async () => {
     sub = subscribeToSpeaking({ confirmMs: 300, dropOffMs: 1000 });
-    levels.next(0.2); // above threshold
+    levels.next(0.1); // above threshold
     await vi.advanceTimersByTimeAsync(200);
     expect(speaking).toEqual([false]); // not yet confirmed
     await vi.advanceTimersByTimeAsync(100); // total 300ms
@@ -142,7 +142,7 @@ describe("observeSpeakingFromLevel$", () => {
 
   test("stops speaking after drop-off once level falls below hold threshold", async () => {
     sub = subscribeToSpeaking({ confirmMs: 300, dropOffMs: 1000 });
-    levels.next(0.2);
+    levels.next(0.1);
     await vi.advanceTimersByTimeAsync(300);
     expect(speaking).toEqual([false, true]); // confirmed speaking
     levels.next(0.01); // below hold threshold
@@ -154,12 +154,12 @@ describe("observeSpeakingFromLevel$", () => {
 
   test("holds speaking through brief dips (hysteresis)", async () => {
     sub = subscribeToSpeaking({ confirmMs: 300, dropOffMs: 1000 });
-    levels.next(0.2);
+    levels.next(0.1);
     await vi.advanceTimersByTimeAsync(300);
     expect(speaking).toEqual([false, true]); // confirmed speaking
     levels.next(0.01); // brief dip below hold threshold
     await vi.advanceTimersByTimeAsync(100); // shorter than drop-off
-    levels.next(0.2); // resume speaking
+    levels.next(0.1); // resume speaking
     await vi.advanceTimersByTimeAsync(1000);
     expect(speaking).toEqual([false, true]); // never stopped speaking
   });
