@@ -29,17 +29,14 @@ const DEFAULT_NOISE_REDUCTION_LEVEL = 0.75;
  */
 export const DEEPFILTERNET_PROCESSOR_NAME = "deepfilternet-noise-suppression";
 
-/**
- * The base path where the DeepFilterNet WASM binary and ONNX model are served
- * from. Uses `import.meta.env.BASE_URL` so the assets resolve correctly even
- * when the app is hosted under a subpath (e.g. `/element-call/`). Overridable
- * via the `VITE_NOISE_SUPPRESSION_CDN_URL` env var for custom deployments.
- */
 function resolveAssetUrl(): string {
-  return (
-    import.meta.env.VITE_NOISE_SUPPRESSION_CDN_URL ||
-    `${window.location.origin}${import.meta.env.BASE_URL}assets/deepfilternet3`
-  );
+  const cdnUrl = import.meta.env.VITE_NOISE_SUPPRESSION_CDN_URL;
+  if (cdnUrl) return cdnUrl;
+
+  return new URL(
+    `${import.meta.env.BASE_URL}assets/deepfilternet3`,
+    document.baseURI,
+  ).toString();
 }
 
 /**
