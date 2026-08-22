@@ -110,8 +110,10 @@ export function createRemoteScreenShare(
       ),
       initialVolume: tileVolumes.getValue()[savedVolumeKey],
       onVolumeCommitted: (volume) => saveTileVolume(savedVolumeKey, volume),
+      // The screen share's boost state is tracked separately from the
+      // participant's microphone, so adjusting one doesn't affect the other.
       onBoostedChange: (boosted) =>
-        setParticipantBoosted(inputs.rtcBackendIdentity, boosted),
+        setParticipantBoosted(savedVolumeKey, boosted),
     }),
     local: false,
     videoEnabled$: scope.behavior(

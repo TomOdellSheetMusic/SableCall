@@ -193,6 +193,42 @@ test("control a participant's screen share volume", () => {
   });
 });
 
+test("a screen share's boost is tracked separately from the participant's mic", () => {
+  // Don't let volumes persisted by earlier tests leak into this one.
+  tileVolumes.setValue({});
+  const setVolumeSpy = vi.fn();
+  const vm = mockRemoteScreenShare(
+    rtcMembership,
+    {},
+    mockRemoteParticipant({ setVolume: setVolumeSpy }),
+  );
+  withTestScheduler(({ expectObservable, schedule }) => {
+    schedule("-ab|", {
+      a() {
+        // Boost the screen share volume above the base volume
+        vm.adjustPlaybackVolume(1.5);
+        expect(setVolumeSpy).toHaveBeenLastCalledWith(
+          1.5,
+          Track.Source.ScreenShareAudio,
+        );
+      },
+      b() {
+        // Back below the base volume
+        vm.adjustPlaybackVolume(0.9);
+        expect(setVolumeSpy).toHaveBeenLastCalledWith(
+          0.9,
+          Track.Source.ScreenShareAudio,
+        );
+      },
+    });
+    expectObservable(vm.playbackVolume$).toBe("abc", {
+      a: 1,
+      b: 1.5,
+      c: 0.9,
+    });
+  });
+});
+
 test("stop watching a remote screen share actually unsubscribes from the LiveKit track", () => {
   const videoPublication = new RemoteTrackPublication(
     Track.Kind.Video,

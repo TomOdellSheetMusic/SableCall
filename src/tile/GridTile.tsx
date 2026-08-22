@@ -27,7 +27,6 @@ import {
   MicrophoneSlash,
   DotsThreeOutline,
   Eye,
-  EyeSlash,
   Monitor,
   Play,
 } from "@phosphor-icons/react";
@@ -61,6 +60,7 @@ import { type RemoteScreenShareViewModel } from "../state/media/RemoteScreenShar
 import { type RingingMediaViewModel } from "../state/media/RingingMediaViewModel";
 import { constant, type Behavior } from "../state/Behavior";
 import { RingingStatus } from "./RingingStatus";
+import { ScreenShareVolumeButton } from "./ScreenShareVolumeButton";
 
 interface TileProps {
   ref?: Ref<HTMLDivElement>;
@@ -442,68 +442,14 @@ const ScreenShareTile: FC<ScreenShareTileProps> = (props) => {
 const RemoteScreenShareTileContent: FC<
   Omit<ScreenShareTileProps, "vm"> & { vm: RemoteScreenShareViewModel }
 > = ({ vm, ...props }) => {
-  const { t } = useTranslation();
   const videoEnabled = useBehavior(vm.videoEnabled$);
-  const playbackMuted = useBehavior(vm.playbackMuted$);
-  const playbackVolume = useBehavior(vm.playbackVolume$);
-  const watching = useBehavior(vm.watching$);
-
-  const onSelectMute = useCallback(
-    (e: Event) => {
-      e.preventDefault();
-      vm.togglePlaybackMuted();
-    },
-    [vm],
-  );
-
-  const onSelectWatching = useCallback(
-    (e: Event) => {
-      e.preventDefault();
-      vm.setWatching(!watching);
-    },
-    [vm, watching],
-  );
-
-  const VolumeIcon = playbackMuted ? SpeakerSlash : SpeakerHigh;
 
   return (
     <ScreenShareTileContent
       vm={vm}
       videoEnabled={videoEnabled}
       {...props}
-      menu={
-        <>
-          <ToggleMenuItem
-            Icon={watching ? EyeSlash : Play}
-            label={
-              watching
-                ? t("video_tile.stop_watching")
-                : t("video_tile.watch_stream")
-            }
-            checked={!watching}
-            onSelect={onSelectWatching}
-          />
-          <ToggleMenuItem
-            Icon={MicrophoneSlash}
-            label={t("video_tile.mute_for_me")}
-            checked={playbackMuted}
-            onSelect={onSelectMute}
-          />
-          {/* TODO: Figure out how to make this slider keyboard accessible */}
-          <MenuItem as="div" Icon={VolumeIcon} label={null} onSelect={null}>
-            <Slider
-              className={styles.volumeSlider}
-              label={t("video_tile.screen_share_volume")}
-              value={playbackVolume}
-              onValueChange={vm.adjustPlaybackVolume}
-              onValueCommit={vm.commitPlaybackVolume}
-              min={0}
-              max={MAX_PLAYBACK_VOLUME}
-              step={0.01}
-            />
-          </MenuItem>
-        </>
-      }
+      primaryButton={<ScreenShareVolumeButton vm={vm} />}
     />
   );
 };
@@ -513,6 +459,7 @@ RemoteScreenShareTileContent.displayName = "RemoteScreenShareTileContent";
 interface ScreenShareTileContentProps extends ScreenShareTileProps {
   videoEnabled: boolean;
   menu?: ReactNode;
+  primaryButton?: ReactNode;
 }
 
 const ScreenShareTileContent: FC<ScreenShareTileContentProps> = ({
@@ -520,6 +467,7 @@ const ScreenShareTileContent: FC<ScreenShareTileContentProps> = ({
   vm,
   videoEnabled,
   menu,
+  primaryButton,
   focusedStream$,
   onToggleFocusedStream,
   className,
@@ -630,9 +578,11 @@ const ScreenShareTileContent: FC<ScreenShareTileContentProps> = ({
       mxcAvatarUrl={mxcAvatarUrl}
       focusable={focusable}
       primaryButton={
+        primaryButton === undefined &&
         onToggleFocusedStream === undefined &&
         menu === undefined ? undefined : (
-          <>
+          <div className={styles.primaryButtons}>
+            {primaryButton}
             {onToggleFocusedStream !== undefined && (
               <button
                 className={styles.maximise}
@@ -675,7 +625,7 @@ const ScreenShareTileContent: FC<ScreenShareTileContentProps> = ({
                 {menu}
               </Menu>
             )}
-          </>
+          </div>
         )
       }
       focusUrl={focusUrl}

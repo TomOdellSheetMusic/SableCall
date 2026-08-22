@@ -312,3 +312,46 @@ it("should render a boosted volume through the WebAudio gain node", () => {
     testAudioContext.pan,
   ]);
 });
+
+it("routes a boosted screen share through the audio context independently of the mic", () => {
+  vi.spyOn(MediaDevicesContext, "useEarpieceAudioConfig").mockReturnValue({
+    pan: 0,
+    volume: 1,
+  });
+
+  // Only the screen share is boosted (via its own "<identity>:screen-share"
+  // key), not the microphone.
+  setParticipantBoosted("@bob:DEV0:screen-share", true);
+  renderTestComponent(
+    [{ userId: "@bob", deviceId: "DEV0" }],
+    ["@bob:DEV0"],
+    [
+      {
+        participantId: "@bob:DEV0",
+        kind: Track.Kind.Audio,
+        source: Track.Source.Microphone,
+      },
+      {
+        participantId: "@bob:DEV0",
+        kind: Track.Kind.Audio,
+        source: Track.Source.ScreenShareAudio,
+      },
+    ],
+  );
+
+  const micTrack = tracks[0].publication.track! as RemoteAudioTrack;
+  const screenShareTrack = tracks[1].publication.track! as RemoteAudioTrack;
+
+  // The mic is not boosted, so it should NOT use the audio context.
+  expect(micTrack.setAudioContext).toHaveBeenLastCalledWith(undefined);
+  expect(micTrack.setWebAudioPlugins).toHaveBeenLastCalledWith([]);
+
+  // The screen share is boosted, so it should use the audio context.
+  expect(screenShareTrack.setAudioContext).toHaveBeenLastCalledWith(
+    testAudioContext,
+  );
+  expect(screenShareTrack.setWebAudioPlugins).toHaveBeenLastCalledWith([
+    testAudioContext.gain,
+    testAudioContext.pan,
+  ]);
+});

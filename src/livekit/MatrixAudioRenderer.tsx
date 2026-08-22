@@ -5,7 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE in the repository root for full details.
 */
 
-import { getTrackReferenceId } from "@livekit/components-core";
+import {
+  getTrackReferenceId,
+  type TrackReference,
+} from "@livekit/components-core";
 import { type Room as LivekitRoom } from "livekit-client";
 import { type RemoteAudioTrack, Track } from "livekit-client";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
@@ -118,9 +121,21 @@ export function LivekitRoomAudioRenderer({
   // node supports volumes above 1, whereas the volume of a plain
   // HTMLMediaElement is clamped to 1. When nobody is boosted we keep the
   // previous behavior and only use the audio context for the earpiece.
+  //
+  // The boost state is keyed per track: the microphone uses the participant's
+  // identity, while the screen share audio uses a distinct
+  // "<identity>:screen-share" key. This lets the two volumes be controlled
+  // independently.
   const boosted = useBehavior(boostedParticipants$);
-  const anyBoosted = validIdentities.some((id) => boosted.has(id));
-  const shouldUseAudioContext = anyBoosted || stereoPan !== 0;
+  const shouldUseAudioContext = (trackRef: TrackReference): boolean => {
+    const source = trackRef.publication.source;
+    const identity = trackRef.participant.identity;
+    const key =
+      source === Track.Source.ScreenShareAudio
+        ? `${identity}:screen-share`
+        : identity;
+    return boosted.has(key) || stereoPan !== 0;
+  };
 
   // The selected output device (e.g. NVIDIA Broadcast). When audio is routed
   // through the WebAudio context for a boosted participant it would otherwise
@@ -202,7 +217,9 @@ export function LivekitRoomAudioRenderer({
           key={getTrackReferenceId(trackRef)}
           trackRef={trackRef}
           muted={muted}
-          audioContext={shouldUseAudioContext ? audioContext : undefined}
+          audioContext={
+            shouldUseAudioContext(trackRef) ? audioContext : undefined
+          }
           audioNodes={audioNodes}
         />
       ))}
