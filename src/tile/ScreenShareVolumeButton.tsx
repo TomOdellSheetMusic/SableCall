@@ -81,7 +81,7 @@ export const ScreenShareVolumeButton: FC<Props> = ({ vm }) => {
             label={t("video_tile.volume")}
             value={playbackVolume}
             min={0}
-            max={MAX_PLAYBACK_VOLUME}
+            max={1}
             step={0.01}
             onValueChange={onVolumeChange}
             onValueCommit={onVolumeCommit}
