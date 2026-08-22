@@ -94,6 +94,33 @@ borders don't support gradients */
   width: 100%;
 }
 
+/* Container for the screen share tile's primary buttons (volume + maximise).
+   MediaView positions its direct button children in the "button" grid area, so
+   we position this wrapper there instead. */
+.primaryButtons {
+  grid-area: button;
+  place-self: end;
+  display: flex;
+  gap: var(--cpd-space-1x);
+  align-items: center;
+}
+
+.primaryButtons > button {
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.primaryButtons > button[data-enabled="true"],
+.primaryButtons > button[data-state="open"] {
+  opacity: 1;
+}
+
+@media (hover) {
+  .tile:hover .primaryButtons > button {
+    opacity: 1;
+  }
+}
+
 .maximise {
   display: flex;
   align-items: center;

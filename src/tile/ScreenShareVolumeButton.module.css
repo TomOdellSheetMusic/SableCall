@@ -1,0 +1,65 @@
+/*
+Copyright 2026 Element Software Ltd.
+
+SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE in the repository root for full details.
+*/
+
+.trigger {
+  appearance: none;
+  cursor: pointer;
+  padding: var(--cpd-space-2x);
+  border: none;
+  border-radius: var(--cpd-radius-pill-effect);
+  background: rgba(from var(--cpd-color-gray-100) r g b / 0.6);
+  box-shadow: var(--small-drop-shadow);
+  transition:
+    opacity 0.15s,
+    background-color 0.1s;
+  z-index: 1;
+}
+
+.trigger > svg {
+  display: block;
+  color: var(--cpd-color-icon-primary);
+}
+
+@media (hover) {
+  .trigger:hover {
+    background: var(--cpd-color-gray-400);
+  }
+}
+
+.trigger:active,
+.trigger[data-state="open"] {
+  background: var(--cpd-color-gray-100);
+}
+
+.volumeSlider {
+  width: 100%;
+  min-width: 172px;
+}
+
+/* Disable the hover effect for the screen share volume menu button */
+.volumeMenuItem:hover {
+  background: transparent;
+  cursor: default;
+}
+
+.volumeMenuItem {
+  gap: var(--cpd-space-3x);
+}
+
+.menuMuteButton {
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+}
+
+/* Make icons change color with the theme */
+.menuMuteButton > svg {
+  color: var(--cpd-color-icon-primary);
+}

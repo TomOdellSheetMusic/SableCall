@@ -21,14 +21,13 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
 } from "@vector-im/compound-design-tokens/assets/web/icons";
-import { SpeakerHigh, SpeakerSlash } from "@phosphor-icons/react";
 import { animated } from "@react-spring/web";
 import { type Observable, map } from "rxjs";
 import { useObservableRef } from "observable-hooks";
 import { useTranslation } from "react-i18next";
 import classNames from "classnames";
 import { type TrackReferenceOrPlaceholder } from "@livekit/components-core";
-import { Menu, MenuItem, Text } from "@vector-im/compound-web";
+import { Text } from "@vector-im/compound-web";
 
 import FullScreenMaximiseIcon from "../icons/FullScreenMaximise.svg?react";
 import FullScreenMinimiseIcon from "../icons/FullScreenMinimise.svg?react";
@@ -47,9 +46,8 @@ import { type UserMediaViewModel } from "../state/media/UserMediaViewModel";
 import { type ScreenShareViewModel } from "../state/media/ScreenShareViewModel";
 import { type RemoteScreenShareViewModel } from "../state/media/RemoteScreenShareViewModel";
 import { type MediaViewModel } from "../state/media/MediaViewModel";
-import { Slider } from "../Slider";
-import { MAX_PLAYBACK_VOLUME } from "../state/VolumeControls";
 import { platform } from "../Platform";
+import { ScreenShareVolumeButton } from "./ScreenShareVolumeButton";
 import { type RingingMediaViewModel } from "../state/media/RingingMediaViewModel";
 import { RingingStatus } from "./RingingStatus";
 
@@ -318,76 +316,6 @@ const SpotlightItem: FC<SpotlightItemProps> = ({
 };
 
 SpotlightItem.displayName = "SpotlightItem";
-
-interface ScreenShareVolumeButtonProps {
-  vm: RemoteScreenShareViewModel;
-}
-
-const ScreenShareVolumeButton: FC<ScreenShareVolumeButtonProps> = ({ vm }) => {
-  const { t } = useTranslation();
-
-  const audioEnabled = useBehavior(vm.audioEnabled$);
-  const playbackMuted = useBehavior(vm.playbackMuted$);
-  const playbackVolume = useBehavior(vm.playbackVolume$);
-
-  const [volumeMenuOpen, setVolumeMenuOpen] = useState(false);
-  const onMuteButtonClick = useCallback(() => vm.togglePlaybackMuted(), [vm]);
-  const onVolumeChange = useCallback(
-    (v: number) => vm.adjustPlaybackVolume(v),
-    [vm],
-  );
-  const onVolumeCommit = useCallback(() => vm.commitPlaybackVolume(), [vm]);
-
-  return (
-    audioEnabled && (
-      <Menu
-        open={volumeMenuOpen}
-        onOpenChange={setVolumeMenuOpen}
-        title={t("video_tile.screen_share_volume")}
-        side="top"
-        align="end"
-        trigger={
-          <button
-            className={styles.expand}
-            aria-label={t("video_tile.screen_share_volume")}
-          >
-            {playbackMuted ? (
-              <SpeakerSlash size={20} />
-            ) : (
-              <SpeakerHigh size={20} />
-            )}
-          </button>
-        }
-      >
-        <MenuItem
-          as="div"
-          className={styles.volumeMenuItem}
-          onSelect={null}
-          label={null}
-          hideChevron={true}
-        >
-          <button className={styles.menuMuteButton} onClick={onMuteButtonClick}>
-            {playbackMuted ? (
-              <SpeakerSlash aria-hidden width={24} height={24} />
-            ) : (
-              <SpeakerHigh aria-hidden width={24} height={24} />
-            )}
-          </button>
-          <Slider
-            className={styles.volumeSlider}
-            label={t("video_tile.volume")}
-            value={playbackVolume}
-            min={0}
-            max={MAX_PLAYBACK_VOLUME}
-            step={0.01}
-            onValueChange={onVolumeChange}
-            onValueCommit={onVolumeCommit}
-          />
-        </MenuItem>
-      </Menu>
-    )
-  );
-};
 
 interface Props {
   ref?: Ref<HTMLDivElement>;
