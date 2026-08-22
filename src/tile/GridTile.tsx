@@ -27,6 +27,7 @@ import {
   MicrophoneSlash,
   DotsThreeOutline,
   Eye,
+  EyeSlash,
   Monitor,
   Play,
 } from "@phosphor-icons/react";
@@ -442,7 +443,17 @@ const ScreenShareTile: FC<ScreenShareTileProps> = (props) => {
 const RemoteScreenShareTileContent: FC<
   Omit<ScreenShareTileProps, "vm"> & { vm: RemoteScreenShareViewModel }
 > = ({ vm, ...props }) => {
+  const { t } = useTranslation();
   const videoEnabled = useBehavior(vm.videoEnabled$);
+  const watching = useBehavior(vm.watching$);
+
+  const onSelectWatching = useCallback(
+    (e: Event) => {
+      e.preventDefault();
+      vm.setWatching(!watching);
+    },
+    [vm, watching],
+  );
 
   return (
     <ScreenShareTileContent
@@ -450,6 +461,18 @@ const RemoteScreenShareTileContent: FC<
       videoEnabled={videoEnabled}
       {...props}
       primaryButton={<ScreenShareVolumeButton vm={vm} />}
+      menu={
+        <ToggleMenuItem
+          Icon={watching ? EyeSlash : Play}
+          label={
+            watching
+              ? t("video_tile.stop_watching")
+              : t("video_tile.watch_stream")
+          }
+          checked={!watching}
+          onSelect={onSelectWatching}
+        />
+      }
     />
   );
 };
