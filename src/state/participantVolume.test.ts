@@ -7,10 +7,7 @@ Please see LICENSE in the repository root for full details.
 
 import { beforeEach, describe, expect, it } from "vitest";
 
-import {
-  participantVolumes$,
-  setParticipantVolume,
-} from "./participantVolume";
+import { participantVolumes$, setParticipantVolume } from "./participantVolume";
 
 describe("participantVolume", () => {
   beforeEach(() => {
