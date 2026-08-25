@@ -26,6 +26,7 @@ import * as MediaDevicesContext from "../MediaDevicesContext";
 import { LivekitRoomAudioRenderer } from "./MatrixAudioRenderer";
 import { setParticipantVolume } from "../state/participantVolume";
 import {
+  mockLocalParticipant,
   mockMediaDevices,
   mockRemoteParticipant,
   mockTrack,
@@ -144,6 +145,47 @@ it("should not render without member", () => {
   );
   expect(container).toBeTruthy();
   expect(queryAllByTestId("audio")).toHaveLength(0);
+});
+
+it("never renders the local user's own audio (e.g. their screen share audio)", () => {
+  // LiveKit's useTracks returns the local participant's published tracks too
+  // (they satisfy `onlySubscribed`). While screen sharing, the local user's
+  // ScreenShareAudio track must not be played back, otherwise they (and
+  // potentially others) hear themselves echoed in the stream.
+  const localParticipant = mockLocalParticipant({ identity: "@alice:DEV0" });
+  const remoteParticipant = mockRemoteParticipant({ identity: "@bob:DEV0" });
+
+  tracks = [
+    mockTrack(localParticipant, Track.Kind.Audio, Track.Source.Microphone),
+    mockTrack(
+      localParticipant,
+      Track.Kind.Audio,
+      Track.Source.ScreenShareAudio,
+    ),
+    mockTrack(remoteParticipant, Track.Kind.Audio, Track.Source.Microphone),
+  ];
+  vi.mocked(useTracks).mockReturnValue(tracks);
+
+  const { queryAllByTestId } = render(
+    <MemoryRouter>
+      <MediaDevicesProvider value={mockMediaDevices({})}>
+        <LivekitRoomAudioRenderer
+          // Only the remote participant is a valid identity; the local user
+          // must additionally be excluded via `isLocal`.
+          validIdentities={["@bob:DEV0", "@alice:DEV0"]}
+          livekitRoom={
+            {
+              remoteParticipants: new Map([["@bob:DEV0", remoteParticipant]]),
+            } as unknown as Room
+          }
+          url={""}
+        />
+      </MediaDevicesProvider>
+    </MemoryRouter>,
+  );
+
+  // Only Bob's microphone track should be rendered.
+  expect(queryAllByTestId("audio")).toHaveLength(1);
 });
 
 const TEST_CASES: {

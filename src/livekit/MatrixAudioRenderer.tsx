@@ -84,6 +84,11 @@ export function LivekitRoomAudioRenderer({
   )
     // Only keep audio tracks
     .filter((ref) => ref.publication.kind === Track.Kind.Audio)
+    // Never render the local user's own audio back to them: `useTracks` also
+    // returns the local participant's published tracks (they satisfy
+    // `onlySubscribed`), and playing those back while screen sharing would make
+    // people hear themselves echoed in the stream.
+    .filter((ref) => !ref.participant.isLocal)
     // Only keep tracks from participants that are in the validIdentities list
     .filter((ref) => {
       const isValid = validIdentities.includes(ref.participant.identity);
