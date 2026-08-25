@@ -25,7 +25,6 @@ import { type ObservableScope } from "../ObservableScope";
 import { createVolumeControls, type VolumeControls } from "../VolumeControls";
 import { observeTrackReference$ } from "../observeTrackReference";
 import { saveTileVolume, tileVolumes } from "../../settings/settings";
-import { setParticipantBoosted } from "../participantVolume";
 
 export interface RemoteScreenShareViewModel
   extends BaseScreenShareViewModel, VolumeControls {
@@ -104,16 +103,22 @@ export function createRemoteScreenShare(
           map(
             ([p]) =>
               (volume) =>
-                p?.setVolume(volume, Track.Source.ScreenShareAudio),
+                // The screen share is NOT routed through the WebAudio audio
+                // context (so it is not affected by noise suppression), which
+                // means its volume is applied via the HTMLMediaElement. That
+                // element clamps volume to 1, so clamp here to avoid an
+                // IndexSizeError. This also keeps the screen share's volume
+                // and mute completely separate from the participant's mic.
+                p?.setVolume(Math.min(1, volume), Track.Source.ScreenShareAudio),
           ),
         ),
       ),
       initialVolume: tileVolumes.getValue()[savedVolumeKey],
       onVolumeCommitted: (volume) => saveTileVolume(savedVolumeKey, volume),
-      // The screen share's boost state is tracked separately from the
-      // participant's microphone, so adjusting one doesn't affect the other.
-      onBoostedChange: (boosted) =>
-        setParticipantBoosted(savedVolumeKey, boosted),
+      // Deliberately no onBoostedChange: the screen share is not routed
+      // through the audio context, so it cannot be boosted above 100%, and we
+      // must not mark the participant's mic as boosted (which would couple the
+      // two tracks together).
     }),
     local: false,
     videoEnabled$: scope.behavior(

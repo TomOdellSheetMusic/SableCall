@@ -121,20 +121,22 @@ export function LivekitRoomAudioRenderer({
   // node supports volumes above 1, whereas the volume of a plain
   // HTMLMediaElement is clamped to 1. When nobody is boosted we keep the
   // previous behavior and only use the audio context for the earpiece.
-  //
-  // The boost state is keyed per track: the microphone uses the participant's
-  // identity, while the screen share audio uses a distinct
-  // "<identity>:screen-share" key. This lets the two volumes be controlled
-  // independently.
   const boosted = useBehavior(boostedParticipants$);
+
+  // Whether a given track should be routed through the WebAudio audio context.
+  // Only the participant's microphone is routed through the context because:
+  //   1. It needs the gain node to boost volume above 100%.
+  //   2. It needs the earpiece pan for iOS.
+  //   3. It is the only track that should be affected by the selected output
+  //      device's processing (e.g. noise suppression), applied via setSinkId.
+  // Screen share audio is deliberately NOT routed through the context so it is
+  // not affected by noise suppression, and its volume is controlled separately
+  // via setVolume on the track.
   const shouldUseAudioContext = (trackRef: TrackReference): boolean => {
     const source = trackRef.publication.source;
+    if (source === Track.Source.ScreenShareAudio) return false;
     const identity = trackRef.participant.identity;
-    const key =
-      source === Track.Source.ScreenShareAudio
-        ? `${identity}:screen-share`
-        : identity;
-    return boosted.has(key) || stereoPan !== 0;
+    return boosted.has(identity) || stereoPan !== 0;
   };
 
   // The selected output device (e.g. NVIDIA Broadcast). When audio is routed

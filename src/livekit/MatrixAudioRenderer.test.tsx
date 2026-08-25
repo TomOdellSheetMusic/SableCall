@@ -313,15 +313,17 @@ it("should render a boosted volume through the WebAudio gain node", () => {
   ]);
 });
 
-it("routes a boosted screen share through the audio context independently of the mic", () => {
+it("routes the mic through the audio context but not the screen share", () => {
   vi.spyOn(MediaDevicesContext, "useEarpieceAudioConfig").mockReturnValue({
     pan: 0,
     volume: 1,
   });
 
-  // Only the screen share is boosted (via its own "<identity>:screen-share"
-  // key), not the microphone.
-  setParticipantBoosted("@bob:DEV0:screen-share", true);
+  // Bob's mic is boosted, so it must be routed through the audio context.
+  // The screen share must NOT be routed through the context so it is not
+  // affected by the output device's noise suppression, and so its volume and
+  // mute stay completely separate from the mic.
+  setParticipantBoosted("@bob:DEV0", true);
   renderTestComponent(
     [{ userId: "@bob", deviceId: "DEV0" }],
     ["@bob:DEV0"],
@@ -342,16 +344,15 @@ it("routes a boosted screen share through the audio context independently of the
   const micTrack = tracks[0].publication.track! as RemoteAudioTrack;
   const screenShareTrack = tracks[1].publication.track! as RemoteAudioTrack;
 
-  // The mic is not boosted, so it should NOT use the audio context.
-  expect(micTrack.setAudioContext).toHaveBeenLastCalledWith(undefined);
-  expect(micTrack.setWebAudioPlugins).toHaveBeenLastCalledWith([]);
-
-  // The screen share is boosted, so it should use the audio context.
-  expect(screenShareTrack.setAudioContext).toHaveBeenLastCalledWith(
-    testAudioContext,
-  );
-  expect(screenShareTrack.setWebAudioPlugins).toHaveBeenLastCalledWith([
+  // The mic is boosted, so it uses the audio context.
+  expect(micTrack.setAudioContext).toHaveBeenLastCalledWith(testAudioContext);
+  expect(micTrack.setWebAudioPlugins).toHaveBeenLastCalledWith([
     testAudioContext.gain,
     testAudioContext.pan,
   ]);
+
+  // The screen share is never routed through the audio context, so it is not
+  // affected by noise suppression and its volume is controlled separately.
+  expect(screenShareTrack.setAudioContext).toHaveBeenLastCalledWith(undefined);
+  expect(screenShareTrack.setWebAudioPlugins).toHaveBeenLastCalledWith([]);
 });
