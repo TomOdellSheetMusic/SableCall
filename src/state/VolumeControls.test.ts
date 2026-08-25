@@ -23,7 +23,7 @@ describe("createVolumeControls", () => {
   function create(options?: {
     initialVolume?: number;
     onVolumeCommitted?: (volume: number) => void;
-    onBoostedChange?: (boosted: boolean) => void;
+    onVolumeChange?: (volume: number) => void;
   }): {
     controls: ReturnType<typeof createVolumeControls>;
     sink: ReturnType<typeof vi.fn>;
@@ -89,7 +89,9 @@ describe("createVolumeControls", () => {
 
     controls.adjustPlaybackVolume(1.5);
     expect(controls.playbackVolume$.value).toBe(1.5);
-    expect(sink).toHaveBeenLastCalledWith(1.5);
+    // The sink (LiveKit setVolume) is clamped to 1; the boost above 100% is
+    // applied separately through the WebAudio gain node.
+    expect(sink).toHaveBeenLastCalledWith(1);
   });
 
   it("clamps volumes above the maximum", () => {
@@ -97,26 +99,30 @@ describe("createVolumeControls", () => {
 
     controls.adjustPlaybackVolume(2.5);
     expect(controls.playbackVolume$.value).toBe(MAX_PLAYBACK_VOLUME);
-    expect(sink).toHaveBeenLastCalledWith(MAX_PLAYBACK_VOLUME);
+    expect(sink).toHaveBeenLastCalledWith(1);
   });
 
   it("clamps an out-of-range initial volume", () => {
     const { controls, sink } = create({ initialVolume: 5 });
 
     expect(controls.playbackVolume$.value).toBe(MAX_PLAYBACK_VOLUME);
-    expect(sink).toHaveBeenCalledWith(MAX_PLAYBACK_VOLUME);
+    expect(sink).toHaveBeenCalledWith(1);
   });
 
-  it("reports whether the volume is boosted above the base volume", () => {
-    const onBoostedChange = vi.fn();
-    const { controls } = create({ onBoostedChange });
+  it("reports the full playback volume including boost and mute", () => {
+    const onVolumeChange = vi.fn();
+    const { controls } = create({ onVolumeChange });
 
-    expect(onBoostedChange).toHaveBeenLastCalledWith(false);
+    expect(onVolumeChange).toHaveBeenLastCalledWith(1);
 
-    controls.adjustPlaybackVolume(1.01);
-    expect(onBoostedChange).toHaveBeenLastCalledWith(true);
+    controls.adjustPlaybackVolume(1.5);
+    controls.commitPlaybackVolume();
+    expect(onVolumeChange).toHaveBeenLastCalledWith(1.5);
 
-    controls.adjustPlaybackVolume(0.5);
-    expect(onBoostedChange).toHaveBeenLastCalledWith(false);
+    controls.togglePlaybackMuted();
+    expect(onVolumeChange).toHaveBeenLastCalledWith(0);
+
+    controls.togglePlaybackMuted();
+    expect(onVolumeChange).toHaveBeenLastCalledWith(1.5);
   });
 });

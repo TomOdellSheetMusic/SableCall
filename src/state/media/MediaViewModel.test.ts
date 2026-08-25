@@ -108,9 +108,11 @@ test("a participant's volume can be boosted above 100%", () => {
   withTestScheduler(({ expectObservable, schedule }) => {
     schedule("-ab|", {
       a() {
-        // Boost the volume above the base volume
+        // Boost the volume above the base volume. The sink clamps to 1: the
+        // HTMLMediaElement throws an IndexSizeError above it, and the boost is
+        // applied through the WebAudio gain node by the audio renderer.
         vm.adjustPlaybackVolume(1.5);
-        expect(setVolumeSpy).toHaveBeenLastCalledWith(1.5);
+        expect(setVolumeSpy).toHaveBeenLastCalledWith(1);
       },
       b() {
         // Back below the base volume
@@ -189,6 +191,45 @@ test("control a participant's screen share volume", () => {
       e: 0.2,
       f: 0,
       g: 0.8,
+    });
+  });
+});
+
+test("a screen share's volume is clamped and does not participate in boosting", () => {
+  // Don't let volumes persisted by earlier tests leak into this one.
+  tileVolumes.setValue({});
+  const setVolumeSpy = vi.fn();
+  const vm = mockRemoteScreenShare(
+    rtcMembership,
+    {},
+    mockRemoteParticipant({ setVolume: setVolumeSpy }),
+  );
+  withTestScheduler(({ expectObservable, schedule }) => {
+    schedule("-ab|", {
+      a() {
+        // Dragging the slider above 100% has no audible effect: the screen
+        // share's audio is not routed through the WebAudio context (so it is
+        // not affected by the volume boosting feature), and the sink clamps to
+        // 1 to avoid an IndexSizeError on the HTMLMediaElement.
+        vm.adjustPlaybackVolume(1.5);
+        expect(setVolumeSpy).toHaveBeenLastCalledWith(
+          1,
+          Track.Source.ScreenShareAudio,
+        );
+      },
+      b() {
+        // Back below the base volume
+        vm.adjustPlaybackVolume(0.9);
+        expect(setVolumeSpy).toHaveBeenLastCalledWith(
+          0.9,
+          Track.Source.ScreenShareAudio,
+        );
+      },
+    });
+    expectObservable(vm.playbackVolume$).toBe("abc", {
+      a: 1,
+      b: 1.5,
+      c: 0.9,
     });
   });
 });

@@ -27,7 +27,7 @@ import { useReactiveState } from "../useReactiveState";
 import { useBehavior } from "../useBehavior";
 import { useObservableEagerState } from "observable-hooks";
 import { useUrlParams } from "../UrlParams";
-import { boostedParticipants$ } from "../state/participantVolume";
+import { participantVolumes$ } from "../state/participantVolume";
 import * as controls from "../controls";
 
 export interface MatrixAudioRendererProps {
@@ -117,26 +117,43 @@ export function LivekitRoomAudioRenderer({
   // shouldUseAudioContext is set to false if stereoPan === 0 to allow standby bluetooth playback.
 
   const { pan: stereoPan, volume: volumeFactor } = useEarpieceAudioConfig();
-  // A participant whose volume is above 100% needs WebAudio routing: the gain
-  // node supports volumes above 1, whereas the volume of a plain
-  // HTMLMediaElement is clamped to 1. When nobody is boosted we keep the
-  // previous behavior and only use the audio context for the earpiece.
-  const boosted = useBehavior(boostedParticipants$);
+
+  // The full playback volume of each remote audio source, keyed by the same
+  // keys used for the saved tile volumes:
+  //  - the participant's identity for their microphone
+  //  - "<identity>:screen-share" for their screen share audio
+  // This lets the mic and screen share be controlled (and muted) completely
+  // independently. Note that screen shares never report a volume here: they
+  // are deliberately kept out of the volume boosting feature.
+  const volumes = useBehavior(participantVolumes$);
+
+  // Look up the full playback volume for a given track. The mic uses the
+  // participant's identity, while the screen share uses a distinct
+  // "<identity>:screen-share" key.
+  const volumeForKey = (trackRef: TrackReference): number => {
+    const source = trackRef.publication.source;
+    const identity = trackRef.participant.identity;
+    const key =
+      source === Track.Source.ScreenShareAudio
+        ? `${identity}:screen-share`
+        : identity;
+    return volumes.get(key) ?? 1;
+  };
 
   // Whether a given track should be routed through the WebAudio audio context.
   // Only the participant's microphone is routed through the context because:
   //   1. It needs the gain node to boost volume above 100%.
   //   2. It needs the earpiece pan for iOS.
-  //   3. It is the only track that should be affected by the selected output
-  //      device's processing (e.g. noise suppression), applied via setSinkId.
   // Screen share audio is deliberately NOT routed through the context so it is
-  // not affected by noise suppression, and its volume is controlled separately
-  // via setVolume on the track.
+  // not affected by the volume boosting feature (or the earpiece/processing
+  // settings applied to the context), and so its volume and mute stay
+  // completely separate from the participant's mic.
   const shouldUseAudioContext = (trackRef: TrackReference): boolean => {
     const source = trackRef.publication.source;
     if (source === Track.Source.ScreenShareAudio) return false;
-    const identity = trackRef.participant.identity;
-    return boosted.has(identity) || stereoPan !== 0;
+    // Only boosted microphones need the context: the gain node is the only
+    // way to amplify past the HTMLMediaElement's volume cap of 1.
+    return volumeForKey(trackRef) > 1 || stereoPan !== 0;
   };
 
   // The selected output device (e.g. NVIDIA Broadcast). When audio is routed
@@ -178,14 +195,6 @@ export function LivekitRoomAudioRenderer({
       document.removeEventListener("touchstart", resume);
     };
   }, [audioContext]);
-  const audioNodes = useMemo(
-    () => ({
-      gain: audioContext?.createGain(),
-      pan: audioContext?.createStereoPanner(),
-    }),
-    [audioContext],
-  );
-
   // Route the audio context to the selected output device so boosted audio
   // doesn't bypass it (e.g. NVIDIA Broadcast noise suppression). Mirrors the
   // sink handling in useAudioContext.tsx.
@@ -203,14 +212,6 @@ export function LivekitRoomAudioRenderer({
     }
   }, [audioContext, audioOutputId, controlledAudioDevices, logger]);
 
-  // Simple effects to update the gain and pan node based on the props
-  useEffect(() => {
-    if (audioNodes.pan) audioNodes.pan.pan.value = stereoPan;
-  }, [audioNodes.pan, stereoPan]);
-  useEffect(() => {
-    if (audioNodes.gain) audioNodes.gain.gain.value = volumeFactor;
-  }, [audioNodes.gain, volumeFactor]);
-
   return (
     // We add all audio elements into one <div> for the browser developer tool experience/tidyness.
     <div style={{ display: "none" }}>
@@ -222,7 +223,10 @@ export function LivekitRoomAudioRenderer({
           audioContext={
             shouldUseAudioContext(trackRef) ? audioContext : undefined
           }
-          audioNodes={audioNodes}
+          audioOutputId={audioOutputId}
+          stereoPan={stereoPan}
+          volumeFactor={volumeFactor}
+          trackVolume={volumeForKey(trackRef)}
         />
       ))}
     </div>
@@ -232,10 +236,24 @@ export function LivekitRoomAudioRenderer({
 interface StereoPanAudioTrackProps {
   muted?: boolean;
   audioContext?: AudioContext;
-  audioNodes: {
-    gain?: GainNode;
-    pan?: StereoPannerNode;
-  };
+  /**
+   * The currently selected audio output device. Used to re-apply the default
+   * sink to screen share tracks whenever it changes.
+   */
+  audioOutputId: string | undefined;
+  /**
+   * The stereo pan to apply (earpiece configuration for iOS).
+   */
+  stereoPan: number;
+  /**
+   * The base volume factor to apply (earpiece configuration for iOS).
+   */
+  volumeFactor: number;
+  /**
+   * The full playback volume of this track, including any boost above 100%.
+   * Screen share tracks always receive 1 (they never boost).
+   */
+  trackVolume: number;
 }
 
 /**
@@ -247,14 +265,21 @@ interface StereoPanAudioTrackProps {
  * @param props.trackRef The track reference
  * @param props.muted If the track should be muted
  * @param props.audioContext The audio context to use
- * @param props.audioNodes The audio nodes to use
+ * @param props.audioOutputId The selected audio output device (used to keep
+ *   screen shares on the default device)
+ * @param props.stereoPan The stereo pan to apply
+ * @param props.volumeFactor The base volume factor to apply
+ * @param props.trackVolume The full playback volume of the track
  * @returns
  */
 function AudioTrackWithAudioNodes({
   trackRef,
   muted,
   audioContext,
-  audioNodes,
+  audioOutputId,
+  stereoPan,
+  volumeFactor,
+  trackVolume,
   ...props
 }: StereoPanAudioTrackProps &
   AudioTrackProps &
@@ -269,20 +294,75 @@ function AudioTrackWithAudioNodes({
     // and when the underlying media stream changes (e.g. on encryption
     // renegotiation, where the WebAudio source node would otherwise stay
     // bound to the old stream).
-    [audioContext && audioNodes, mediaStream],
+    [audioContext, mediaStream],
   );
 
+  // Each track gets its own gain + pan node so that a boosted participant's
+  // microphone is amplified independently of every other track (a shared gain
+  // node would couple their volumes together).
+  const audioNodes = useMemo(() => {
+    if (!audioContext) return undefined;
+    return {
+      gain: audioContext.createGain(),
+      pan: audioContext.createStereoPanner(),
+    };
+  }, [audioContext]);
+
+  // Apply the earpiece configuration (volume factor + stereo pan) to this
+  // track's own nodes, along with any boost above 100%: the view model's sink
+  // clamps the element volume to 1 (a plain HTMLMediaElement throws an
+  // IndexSizeError above it), so the gain node is the only place where a
+  // volume above 1 can be applied. The per-user mute and volume below 100%
+  // are owned by the view model's sink (RemoteParticipant.setVolume), which
+  // LiveKit applies to its own per-track gain node; multiplying the earpiece
+  // volume factor here preserves the previous behavior.
   useEffect(() => {
-    if (!trackRef || trackReady) return;
-    const track = trackRef.publication.track as RemoteAudioTrack;
-    const useContext = audioContext && audioNodes.gain && audioNodes.pan;
+    if (!audioNodes) return;
+    audioNodes.pan.pan.value = stereoPan;
+    audioNodes.gain.gain.value = volumeFactor * Math.max(1, trackVolume);
+  }, [audioNodes, stereoPan, volumeFactor, trackVolume]);
+
+  useEffect(() => {
+    if (!trackRef) return;
+    const track = trackRef.publication.track as RemoteAudioTrack | undefined;
+    // The published track may not exist yet while LiveKit is (re)subscribing
+    // to it, or it may be swapped out while a stream is being re-published.
+    // During that window `track` is `undefined`, and calling `setAudioContext`
+    // on it would crash the whole call (React ErrorBoundary). Wait for the
+    // track to appear instead (its `publication.track` change re-triggers this
+    // effect) so we never read a member of `undefined`.
+    if (track === undefined || trackReady) return;
+    const useContext = audioContext && audioNodes;
     track.setAudioContext(useContext ? audioContext : undefined);
     track.setWebAudioPlugins(
-      useContext ? [audioNodes.gain!, audioNodes.pan!] : [],
+      useContext ? [audioNodes.gain, audioNodes.pan] : [],
     );
     setTrackReady(true);
     controls.setPlaybackStarted();
-  }, [audioContext, audioNodes, setTrackReady, trackReady, trackRef]);
+  }, [
+    audioContext,
+    audioNodes,
+    setTrackReady,
+    trackReady,
+    trackRef,
+    trackRef?.publication.track,
+  ]);
+
+  // Keep the screen share on the default output device. LiveKit's Room applies
+  // the selected audio output (which may carry processing such as noise
+  // suppression) to every remote track via setSinkId, and re-applies it
+  // whenever the user switches devices. Since the screen share must never be
+  // processed, undo it on mount and whenever the output device changes.
+  useEffect(() => {
+    if (trackRef?.publication.source !== Track.Source.ScreenShareAudio) return;
+    const track = trackRef?.publication.track as RemoteAudioTrack | undefined;
+    if (track === undefined) return;
+    track.setSinkId("").catch((ex) => {
+      rootLogger
+        .getChild("[MatrixAudioRenderer]")
+        .warn("Unable to reset sink for screen share audio", ex);
+    });
+  }, [audioOutputId, trackRef]);
 
   return (
     trackReady && <AudioTrack trackRef={trackRef} muted={muted} {...props} />
