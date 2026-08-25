@@ -175,9 +175,7 @@ it("never renders the local user's own audio (e.g. their screen share audio)", (
           validIdentities={["@bob:DEV0", "@alice:DEV0"]}
           livekitRoom={
             {
-              remoteParticipants: new Map([
-                ["@bob:DEV0", remoteParticipant],
-              ]),
+              remoteParticipants: new Map([["@bob:DEV0", remoteParticipant]]),
             } as unknown as Room
           }
           url={""}
