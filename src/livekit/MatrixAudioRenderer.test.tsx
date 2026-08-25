@@ -24,7 +24,7 @@ import { MemoryRouter } from "react-router-dom";
 import { testAudioContext } from "../useAudioContext.test";
 import * as MediaDevicesContext from "../MediaDevicesContext";
 import { LivekitRoomAudioRenderer } from "./MatrixAudioRenderer";
-import { setParticipantBoosted } from "../state/participantVolume";
+import { setParticipantVolume } from "../state/participantVolume";
 import {
   mockMediaDevices,
   mockRemoteParticipant,
@@ -44,13 +44,13 @@ const MediaDevicesProvider = MediaDevicesContext.MediaDevicesContext.Provider;
 
 beforeEach(() => {
   vi.stubGlobal("AudioContext", TestAudioContextConstructor);
-  setParticipantBoosted("@bob:DEV0", false);
+  setParticipantVolume("@bob:DEV0", 1);
 });
 
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.clearAllMocks();
-  setParticipantBoosted("@bob:DEV0", false);
+  setParticipantVolume("@bob:DEV0", 1);
 });
 
 vi.mock("@livekit/components-react", async (importOriginal) => {
@@ -302,7 +302,7 @@ it("should render a boosted volume through the WebAudio gain node", () => {
   // Bob's volume is boosted above 100%, so the audio context must be
   // attached so that the boosted volume is applied to the WebAudio gain node
   // rather than being clamped to 1 on the HTMLMediaElement.
-  setParticipantBoosted("@bob:DEV0", true);
+  setParticipantVolume("@bob:DEV0", 1.5);
   renderTestComponent([{ userId: "@bob", deviceId: "DEV0" }], ["@bob:DEV0"]);
   const audioTrack = tracks[0].publication.track! as RemoteAudioTrack;
 
@@ -313,15 +313,18 @@ it("should render a boosted volume through the WebAudio gain node", () => {
   ]);
 });
 
-it("routes a boosted screen share through the audio context independently of the mic", () => {
+it("routes the mic through the audio context but not the screen share", () => {
   vi.spyOn(MediaDevicesContext, "useEarpieceAudioConfig").mockReturnValue({
     pan: 0,
     volume: 1,
   });
 
-  // Only the screen share is boosted (via its own "<identity>:screen-share"
-  // key), not the microphone.
-  setParticipantBoosted("@bob:DEV0:screen-share", true);
+  // Bob's mic is boosted, so it must be routed through the audio context.
+  // The screen share must NOT be routed through the context so it is not
+  // affected by the volume boosting feature (or the earpiece/noise-suppression
+  // settings applied to the context), and so its volume and mute stay
+  // completely separate from the mic.
+  setParticipantVolume("@bob:DEV0", 1.5);
   renderTestComponent(
     [{ userId: "@bob", deviceId: "DEV0" }],
     ["@bob:DEV0"],
@@ -342,16 +345,51 @@ it("routes a boosted screen share through the audio context independently of the
   const micTrack = tracks[0].publication.track! as RemoteAudioTrack;
   const screenShareTrack = tracks[1].publication.track! as RemoteAudioTrack;
 
-  // The mic is not boosted, so it should NOT use the audio context.
-  expect(micTrack.setAudioContext).toHaveBeenLastCalledWith(undefined);
-  expect(micTrack.setWebAudioPlugins).toHaveBeenLastCalledWith([]);
-
-  // The screen share is boosted, so it should use the audio context.
-  expect(screenShareTrack.setAudioContext).toHaveBeenLastCalledWith(
-    testAudioContext,
-  );
-  expect(screenShareTrack.setWebAudioPlugins).toHaveBeenLastCalledWith([
+  // The mic is boosted, so it uses the audio context.
+  expect(micTrack.setAudioContext).toHaveBeenLastCalledWith(testAudioContext);
+  expect(micTrack.setWebAudioPlugins).toHaveBeenLastCalledWith([
     testAudioContext.gain,
     testAudioContext.pan,
   ]);
+
+  // The screen share is never routed through the audio context, so it is not
+  // affected by the volume boosting feature and its volume is controlled
+  // separately.
+  expect(screenShareTrack.setAudioContext).toHaveBeenLastCalledWith(undefined);
+  expect(screenShareTrack.setWebAudioPlugins).toHaveBeenLastCalledWith([]);
+});
+
+it("resets the screen share's sink so noise suppression is not applied", () => {
+  vi.spyOn(MediaDevicesContext, "useEarpieceAudioConfig").mockReturnValue({
+    pan: 0,
+    volume: 1,
+  });
+
+  renderTestComponent(
+    [{ userId: "@bob", deviceId: "DEV0" }],
+    ["@bob:DEV0"],
+    [
+      {
+        participantId: "@bob:DEV0",
+        kind: Track.Kind.Audio,
+        source: Track.Source.Microphone,
+      },
+      {
+        participantId: "@bob:DEV0",
+        kind: Track.Kind.Audio,
+        source: Track.Source.ScreenShareAudio,
+      },
+    ],
+  );
+
+  const micTrack = tracks[0].publication.track! as RemoteAudioTrack;
+  const screenShareTrack = tracks[1].publication.track! as RemoteAudioTrack;
+
+  // The mic keeps its sink (so the selected output device / noise suppression
+  // applies to it).
+  expect(micTrack.setSinkId).not.toHaveBeenCalled();
+
+  // The screen share's sink is reset to the default device so noise
+  // suppression is not applied to it.
+  expect(screenShareTrack.setSinkId).toHaveBeenCalledWith("");
 });

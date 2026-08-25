@@ -548,6 +548,7 @@ export const mockTrack = (
         setAudioContext: vi.fn(),
         setWebAudioPlugins: vi.fn(),
         setVolume: vi.fn(),
+        setSinkId: vi.fn().mockResolvedValue(undefined),
         // The audio renderer remounts the track element when the media stream
         // changes, so the mock needs a stable mediaStream identity.
         mediaStream: {},

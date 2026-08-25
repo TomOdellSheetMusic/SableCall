@@ -43,11 +43,13 @@ interface VolumeControlsInputs {
   initialVolume?: number;
   onVolumeCommitted?: (volume: number) => void;
   /**
-   * Called with whether the volume is above 100% whenever it changes, so the
-   * audio renderer can route the participant's audio through a WebAudio gain
-   * node (required to amplify past the HTMLMediaElement's volume cap of 1).
+   * Called with the full playback volume (including any boost above 100% and
+   * mute) whenever it changes. The audio renderer uses this to apply the
+   * volume (and mute) through the WebAudio gain node, since a plain
+   * HTMLMediaElement clamps its volume to 1 and throws an IndexSizeError if
+   * set above it.
    */
-  onBoostedChange?: (boosted: boolean) => void;
+  onVolumeChange?: (volume: number) => void;
 }
 
 /**
@@ -61,7 +63,7 @@ export function createVolumeControls(
     sink$,
     initialVolume = 1,
     onVolumeCommitted,
-    onBoostedChange,
+    onVolumeChange,
   }: VolumeControlsInputs,
 ): VolumeControls {
   const clamp = (v: number): number =>
@@ -115,7 +117,13 @@ export function createVolumeControls(
       });
   }
 
-  // Sync the requested volume with the audio playback module
+  // Sync the requested volume with the audio playback module.
+  //
+  // The volume passed to the sink (LiveKit's `setVolume`) is clamped to [0, 1].
+  // Volumes above 100% are applied separately through the WebAudio gain node
+  // (see `onVolumeChange`), because a plain HTMLMediaElement clamps its volume
+  // to 1 and throws an IndexSizeError if set above it. Clamping here avoids
+  // that crash even if the audio context isn't attached yet.
   combineLatest([
     sink$,
     // The playback volume, taking into account whether we're supposed to
@@ -126,17 +134,16 @@ export function createVolumeControls(
     ),
   ])
     .pipe(scope.bind())
-    .subscribe(([sink, volume]) => sink(volume));
+    .subscribe(([sink, volume]) => sink(Math.min(1, volume)));
 
-  // Notify the audio renderer when this stream starts/stops needing a boost.
-  if (onBoostedChange !== undefined) {
+  // Notify the audio renderer of the full playback volume so it can apply the
+  // volume (and mute) through the WebAudio gain node. This is the single
+  // source of truth for the audible volume, so there is no race between a
+  // `setVolume` call and the gain node, and no IndexSizeError.
+  if (onVolumeChange !== undefined) {
     playbackVolume$
-      .pipe(
-        map((volume) => volume > 1),
-        distinctUntilChanged(),
-        scope.bind(),
-      )
-      .subscribe(onBoostedChange);
+      .pipe(distinctUntilChanged(), scope.bind())
+      .subscribe(onVolumeChange);
   }
 
   return {

@@ -8,22 +8,30 @@ Please see LICENSE in the repository root for full details.
 import { BehaviorSubject } from "rxjs";
 
 /**
- * Identities of remote participants whose playback volume is currently boosted
- * above 100%. Module-level so the audio renderer can react to it without
- * threading state through the view model tree.
+ * The current playback volume of each remote audio source, keyed by the same
+ * keys used for the saved tile volumes:
+ *  - the participant's identity for their microphone
+ *  - "<identity>:screen-share" for their screen share audio
+ *
+ * Module-level so the audio renderer can apply the volume (and mute) through
+ * the WebAudio gain node without threading state through the view model tree.
+ * Keeping the mic and screen share under separate keys means their volumes and
+ * mutes are completely independent.
+ *
+ * Screen shares never report a volume here: they are deliberately kept out of
+ * the volume boosting feature (their audio is not routed through the WebAudio
+ * context, and their volume clamps at 100% inside the view model).
  */
-export const boostedParticipants$ = new BehaviorSubject<Set<string>>(new Set());
+export const participantVolumes$ = new BehaviorSubject<Map<string, number>>(
+  new Map(),
+);
 
 /**
- * Mark a participant's volume as boosted (above 100%) or not.
+ * Record the current playback volume for a given audio source key.
  */
-export function setParticipantBoosted(
-  identity: string,
-  boosted: boolean,
-): void {
-  if (boostedParticipants$.value.has(identity) === boosted) return;
-  const next = new Set(boostedParticipants$.value);
-  if (boosted) next.add(identity);
-  else next.delete(identity);
-  boostedParticipants$.next(next);
+export function setParticipantVolume(key: string, volume: number): void {
+  if (participantVolumes$.value.get(key) === volume) return;
+  const next = new Map(participantVolumes$.value);
+  next.set(key, volume);
+  participantVolumes$.next(next);
 }

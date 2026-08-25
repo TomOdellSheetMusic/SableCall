@@ -12,7 +12,7 @@ import { combineLatest, map, of, switchMap } from "rxjs";
 import { type Behavior } from "../Behavior";
 import { createVolumeControls, type VolumeControls } from "../VolumeControls";
 import { saveTileVolume, tileVolumes } from "../../settings/settings";
-import { setParticipantBoosted } from "../participantVolume";
+import { setParticipantVolume } from "../participantVolume";
 import {
   type BaseUserMediaInputs,
   type BaseUserMediaViewModel,
@@ -51,15 +51,25 @@ export function createRemoteUserMedia(
     ...baseUserMedia,
     ...createVolumeControls(scope, {
       pretendToBeDisconnected$,
+      // Clamp the microphone's element volume to 1: a plain HTMLMediaElement
+      // throws an IndexSizeError if set above 1. Any boost above 100% is
+      // applied through the WebAudio gain node by the audio renderer (which
+      // observes `participantVolumes$`), so the full audible volume is still
+      // respected without ever setting `el.volume` above 1.
       sink$: scope.behavior(
-        inputs.participant$.pipe(map((p) => (volume) => p?.setVolume(volume))),
+        inputs.participant$.pipe(
+          map((p) => (volume) => p?.setVolume(Math.min(1, volume))),
+        ),
       ),
       // Restore and persist this participant device's saved volume
       initialVolume: tileVolumes.getValue()[inputs.rtcBackendIdentity],
       onVolumeCommitted: (volume) =>
         saveTileVolume(inputs.rtcBackendIdentity, volume),
-      onBoostedChange: (boosted) =>
-        setParticipantBoosted(inputs.rtcBackendIdentity, boosted),
+      // Report the full playback volume (including any boost above 100% and
+      // mute) to the audio renderer so it can apply it through the WebAudio
+      // gain node.
+      onVolumeChange: (volume) =>
+        setParticipantVolume(inputs.rtcBackendIdentity, volume),
     }),
     local: false,
     speaking$: scope.behavior(
