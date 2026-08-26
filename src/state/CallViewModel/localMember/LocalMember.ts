@@ -727,6 +727,7 @@ export const createLocalMembership$ = ({
         selfBrowserSurface: "include",
         surfaceSwitching: "include",
         systemAudio: "include",
+        suppressLocalAudioPlayback: true,
       };
 
       let publishOptions: TrackPublishOptions | undefined;
