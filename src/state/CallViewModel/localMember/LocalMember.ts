@@ -715,10 +715,10 @@ export const createLocalMembership$ = ({
   ) {
     toggleScreenSharing = (): void => {
       const screenshareSettings: ScreenShareCaptureOptions = {
-        // Screen share audio shouldn't have any filtering.
-        // "echoCancellation" is purposely excluded, as setting it to
-        // false causes the screen share audio track to include
-        // an echo of the incoming participant's voice
+        // Screen share audio shouldn't have any filtering. echoCancellation is
+        // deliberately left unset (it defaults to true) so that the captured
+        // tab audio does not get its echo filtered; see below for how we avoid
+        // capturing the sharer's whole system sound anyway.
         audio: {
           autoGainControl: false,
           noiseSuppression: false,
@@ -726,8 +726,14 @@ export const createLocalMembership$ = ({
         },
         selfBrowserSurface: "include",
         surfaceSwitching: "include",
-        systemAudio: "include",
-        suppressLocalAudioPlayback: true,
+        // Do NOT include the system audio mix: "systemAudio: include" captures
+        // the whole system sound of the sharer's machine, which includes the
+        // voices of every other call member (the watcher included) as they
+        // play out of the sharer's speakers. A viewer would then hear their own
+        // voice echoed back in the stream instead of the sharer's content.
+        // Tab audio is still captured separately when sharing a tab, so real
+        // audio sharing (e.g. videos or background music in a tab) is preserved.
+        systemAudio: "exclude",
       };
 
       let publishOptions: TrackPublishOptions | undefined;

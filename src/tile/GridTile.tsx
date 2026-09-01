@@ -45,6 +45,8 @@ import {
 import { useObservableEagerState } from "observable-hooks";
 
 import styles from "./GridTile.module.css";
+import FullScreenMaximiseIcon from "../icons/FullScreenMaximise.svg?react";
+import FullScreenMinimiseIcon from "../icons/FullScreenMinimise.svg?react";
 import { Slider } from "../Slider";
 import { MAX_PLAYBACK_VOLUME } from "../state/VolumeControls";
 import { MediaView } from "./MediaView";
@@ -425,6 +427,15 @@ interface ScreenShareTileProps extends TileProps {
    * other tile, or unfocuses when passed null.
    */
   onToggleFocusedStream?: (vm: ScreenShareViewModel | null) => void;
+  /**
+   * Whether the call chrome (header/footer) is currently hidden.
+   */
+  fullscreen?: boolean;
+  /**
+   * Toggles whether the call chrome (header/footer) is hidden to maximise the
+   * space available to the tile.
+   */
+  onToggleFullscreen?: () => void;
 }
 
 /**
@@ -522,6 +533,8 @@ const ScreenShareTileContent: FC<ScreenShareTileContentProps> = ({
   menu,
   focusedStream$,
   onToggleFocusedStream,
+  fullscreen,
+  onToggleFullscreen,
   className,
   focusable,
   targetWidth,
@@ -583,6 +596,9 @@ const ScreenShareTileContent: FC<ScreenShareTileContentProps> = ({
   }, [watching]);
 
   const FocusIcon = isFocused ? CollapseIcon : ExpandIcon;
+  const FullScreenIcon = fullscreen
+    ? FullScreenMinimiseIcon
+    : FullScreenMaximiseIcon;
 
   const tile = (
     <MediaView
@@ -631,7 +647,8 @@ const ScreenShareTileContent: FC<ScreenShareTileContentProps> = ({
       focusable={focusable}
       primaryButton={
         onToggleFocusedStream === undefined &&
-        menu === undefined ? undefined : (
+        menu === undefined &&
+        onToggleFullscreen === undefined ? undefined : (
           <>
             {onToggleFocusedStream !== undefined && (
               <button
@@ -646,6 +663,21 @@ const ScreenShareTileContent: FC<ScreenShareTileContentProps> = ({
                 tabIndex={focusable ? undefined : -1}
               >
                 <FocusIcon aria-hidden width={20} height={20} />
+              </button>
+            )}
+            {onToggleFullscreen !== undefined && (
+              <button
+                className={styles.maximise}
+                aria-label={
+                  fullscreen
+                    ? t("video_tile.exit_fullscreen")
+                    : t("video_tile.fullscreen")
+                }
+                data-enabled="true"
+                onClick={onToggleFullscreen}
+                tabIndex={focusable ? undefined : -1}
+              >
+                <FullScreenIcon aria-hidden width={20} height={20} />
               </button>
             )}
             {menu !== undefined && (
@@ -711,6 +743,8 @@ interface GridTileProps {
   focusable: boolean;
   focusedStream$?: Behavior<ScreenShareViewModel | null>;
   onToggleFocusedStream?: (vm: ScreenShareViewModel | null) => void;
+  fullscreen?: boolean;
+  onToggleFullscreen?: () => void;
 }
 
 export const GridTile: FC<GridTileProps> = ({
@@ -722,6 +756,8 @@ export const GridTile: FC<GridTileProps> = ({
   onOpenProfile,
   focusedStream$,
   onToggleFocusedStream,
+  fullscreen,
+  onToggleFullscreen,
   className,
   ...props
 }) => {
@@ -750,6 +786,8 @@ export const GridTile: FC<GridTileProps> = ({
         vm={media}
         focusedStream$={focusedStream$}
         onToggleFocusedStream={onToggleFocusedStream}
+        fullscreen={fullscreen}
+        onToggleFullscreen={onToggleFullscreen}
         displayName={displayName}
         mxcAvatarUrl={mxcAvatarUrl}
         className={classNames(className, { [styles.outline]: showOutline })}

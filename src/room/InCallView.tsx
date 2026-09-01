@@ -313,6 +313,7 @@ export const InCallView: FC<InCallViewProps> = ({
   const overflowing = useBehavior(vm.overflowing$);
   const showNameTags = useBehavior(vm.showNameTags$);
   const showHeader = useBehavior(vm.showHeader$);
+  const fullscreen = useBehavior(vm.fullscreen$);
   const settingsOpen = useBehavior(vm.settingsOpen$);
   const setSettingsOpen = useBehavior(vm.setSettingsOpen$);
   const earpieceMode = useBehavior(vm.earpieceMode$);
@@ -508,6 +509,8 @@ export const InCallView: FC<InCallViewProps> = ({
             focusable={!contentObscured}
             focusedStream$={vm.focusedStream$}
             onToggleFocusedStream={vm.setFocusedStream}
+            fullscreen={fullscreen}
+            onToggleFullscreen={(): void => vm.setFullscreen(!fullscreen)}
           />
         ) : (
           <SpotlightTile
@@ -527,7 +530,7 @@ export const InCallView: FC<InCallViewProps> = ({
           />
         );
       },
-    [vm, openProfile, contentObscured],
+    [vm, openProfile, contentObscured, fullscreen],
   );
 
   const layouts = useMemo(() => {

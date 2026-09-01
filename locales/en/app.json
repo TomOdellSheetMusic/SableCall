@@ -295,6 +295,8 @@
     "camera_starting": "Video loading...",
     "collapse": "Collapse",
     "expand": "Expand",
+    "exit_fullscreen": "Exit full screen",
+    "fullscreen": "Full screen",
     "mute_for_me": "Mute for me",
     "muted_for_me": "Muted for me",
     "screen_share_volume": "Screen share volume",
