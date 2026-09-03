@@ -715,25 +715,30 @@ export const createLocalMembership$ = ({
   ) {
     toggleScreenSharing = (): void => {
       const screenshareSettings: ScreenShareCaptureOptions = {
-        // Screen share audio shouldn't have any filtering. echoCancellation is
-        // deliberately left unset (it defaults to true) so that the captured
-        // tab audio does not get its echo filtered; see below for how we avoid
-        // capturing the sharer's whole system sound anyway.
+        // Screen share audio shouldn't have any filtering.
+        // "echoCancellation" is purposely excluded, as setting it to
+        // false causes the screen share audio track to include
+        // an echo of the incoming participant's voice
         audio: {
           autoGainControl: false,
           noiseSuppression: false,
           voiceIsolation: false,
+          // Exclude the app's own audio (e.g. the voices of other call members
+          // playing out of the sharer's speakers) from the captured stream, so
+          // a watcher never hears themselves echoed back. This is a
+          // Chromium-only experimental constraint; on other browsers it is
+          // ignored and the system audio is captured as usual.
+          // @ts-expect-error - restrictOwnAudio is not yet in livekit-client's
+          // AudioCaptureOptions type, but the SDK forwards `audio` verbatim to
+          // getDisplayMedia, so the browser still receives it.
+          restrictOwnAudio: true,
         },
         selfBrowserSurface: "include",
         surfaceSwitching: "include",
-        // Do NOT include the system audio mix: "systemAudio: include" captures
-        // the whole system sound of the sharer's machine, which includes the
-        // voices of every other call member (the watcher included) as they
-        // play out of the sharer's speakers. A viewer would then hear their own
-        // voice echoed back in the stream instead of the sharer's content.
-        // Tab audio is still captured separately when sharing a tab, so real
-        // audio sharing (e.g. videos or background music in a tab) is preserved.
-        systemAudio: "exclude",
+        // Include system audio so that sharing the entire screen (not just a
+        // tab) also shares audio. The app's own audio is excluded from the
+        // capture via `restrictOwnAudio` above.
+        systemAudio: "include",
       };
 
       let publishOptions: TrackPublishOptions | undefined;
