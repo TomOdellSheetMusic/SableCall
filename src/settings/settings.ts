@@ -120,7 +120,7 @@ export const videoInput = new Setting<string | undefined>(
 export const backgroundBlur = new Setting<boolean>("background-blur", false);
 export const rnnoiseNoiseSuppression = new Setting<boolean>(
   "rnnoise-noise-suppression",
-  true,
+  false,
 );
 export const rnnoiseNoiseSuppressionPreset =
   new Setting<RNNoiseSuppressionPreset>(
@@ -134,7 +134,7 @@ export const rnnoiseNoiseSuppressionPreset =
  */
 export const deepFilterNetNoiseSuppression = new Setting<boolean>(
   "deepfilternet-noise-suppression",
-  false,
+  true,
 );
 
 /**
@@ -142,7 +142,7 @@ export const deepFilterNetNoiseSuppression = new Setting<boolean>(
  */
 export const deepFilterNetNoiseSuppressionLevel = new Setting<number>(
   "deepfilternet-noise-suppression-level",
-  0.75,
+  0.35,
 );
 
 export const micCutoffEnabled = new Setting<boolean>(
@@ -215,7 +215,7 @@ export function parseResolution(res: string): {
 
 export const advancedScreenShare = new Setting<boolean>(
   "advanced-screen-share",
-  false,
+  true,
 );
 
 export const screenShareResolution = new Setting<string>(
@@ -260,7 +260,7 @@ export const echoCancellationSetting = new Setting<boolean>(
 
 export const noiseSuppressionSetting = new Setting<boolean>(
   "noise-suppression",
-  true,
+  false,
 );
 
 export const autoGainControlSetting = new Setting<boolean>(
