@@ -29,6 +29,10 @@ import { useObservableEagerState } from "observable-hooks";
 import { useUrlParams } from "../UrlParams";
 import { participantVolumes$ } from "../state/participantVolume";
 import * as controls from "../controls";
+import {
+  isMicrophoneSource,
+  useRemoteNoiseSuppression,
+} from "./RemoteNoiseSuppression";
 
 export interface MatrixAudioRendererProps {
   /**
@@ -175,7 +179,11 @@ export function LivekitRoomAudioRenderer({
     undefined,
   );
   useEffect(() => {
-    const ctx = new AudioContext();
+    // RNNoise only operates at a 48kHz sample rate, so raise the shared
+    // processing context to 48kHz. This also lets the processor be applied to
+    // incoming member microphones when "apply to incoming member audio" is
+    // enabled. Browsers fall back to their nearest supported rate otherwise.
+    const ctx = new AudioContext({ sampleRate: 48000 });
     setAudioContext(ctx);
     return (): void => {
       void ctx.close();
@@ -228,6 +236,7 @@ export function LivekitRoomAudioRenderer({
           audioContext={
             shouldUseAudioContext(trackRef) ? audioContext : undefined
           }
+          processingContext={audioContext}
           audioOutputId={audioOutputId}
           stereoPan={stereoPan}
           volumeFactor={volumeFactor}
@@ -241,6 +250,13 @@ export function LivekitRoomAudioRenderer({
 interface StereoPanAudioTrackProps {
   muted?: boolean;
   audioContext?: AudioContext;
+  /**
+   * The shared audio context used to apply noise suppression processing to
+   * incoming member microphones when the "apply to incoming member audio"
+   * setting is enabled. Always available (even without volume boosting) so
+   * that an RNNoise/DeepFilterNet processor can be attached.
+   */
+  processingContext?: AudioContext;
   /**
    * The currently selected audio output device. Used to re-apply the default
    * sink to screen share tracks whenever it changes.
@@ -270,6 +286,8 @@ interface StereoPanAudioTrackProps {
  * @param props.trackRef The track reference
  * @param props.muted If the track should be muted
  * @param props.audioContext The audio context to use
+ * @param props.processingContext The shared audio context used for noise
+ *   suppression processing of incoming member microphones
  * @param props.audioOutputId The selected audio output device (used to keep
  *   screen shares on the default device)
  * @param props.stereoPan The stereo pan to apply
@@ -281,6 +299,7 @@ function AudioTrackWithAudioNodes({
   trackRef,
   muted,
   audioContext,
+  processingContext,
   audioOutputId,
   stereoPan,
   volumeFactor,
@@ -293,13 +312,18 @@ function AudioTrackWithAudioNodes({
   // Mounting needs to happen after the audioContext is set.
   // (adding the audio context when already mounted did not work outside strict mode)
   const mediaStream = trackRef?.publication.track?.mediaStream;
+  const track = trackRef?.publication.track as RemoteAudioTrack | undefined;
+  const isMicrophone = isMicrophoneSource(trackRef);
+  const { active: remoteNoiseSuppression, version: noiseSuppressionVersion } =
+    useRemoteNoiseSuppression(track, isMicrophone, processingContext);
   const [trackReady, setTrackReady] = useReactiveState(
     () => false,
     // We want the track to reset when the audio context becomes available,
+    // the incoming noise suppression changes the underlying media stream,
     // and when the underlying media stream changes (e.g. on encryption
     // renegotiation, where the WebAudio source node would otherwise stay
     // bound to the old stream).
-    [audioContext, mediaStream],
+    [audioContext, mediaStream, remoteNoiseSuppression, noiseSuppressionVersion],
   );
 
   // Each track gets its own gain + pan node so that a boosted participant's
@@ -312,6 +336,20 @@ function AudioTrackWithAudioNodes({
       pan: audioContext.createStereoPanner(),
     };
   }, [audioContext]);
+
+  // The audio context this track should actually be routed through. A mic that
+  // is boosted (or uses earpiece panning) uses the volume-routing context; a
+  // mic that has incoming noise suppression applied also needs the processing
+  // context attached so the RNNoise/DeepFilterNet processor can run (RNNoise
+  // requires its AudioContext). Screen shares and unprocessed, unboosted mics
+  // get no context.
+  const effectiveAudioContext =
+    remoteNoiseSuppression && processingContext
+      ? processingContext
+      : audioContext && audioNodes
+        ? audioContext
+        : undefined;
+  const hasVolumeNodes = effectiveAudioContext === audioContext && audioNodes;
 
   // Apply the earpiece configuration (volume factor + stereo pan) to this
   // track's own nodes, along with any boost above 100%: the view model's sink
@@ -337,16 +375,24 @@ function AudioTrackWithAudioNodes({
     // track to appear instead (its `publication.track` change re-triggers this
     // effect) so we never read a member of `undefined`.
     if (track === undefined || trackReady) return;
-    const useContext = audioContext && audioNodes;
-    track.setAudioContext(useContext ? audioContext : undefined);
-    track.setWebAudioPlugins(
-      useContext ? [audioNodes.gain, audioNodes.pan] : [],
-    );
+    if (effectiveAudioContext) {
+      track.setAudioContext(effectiveAudioContext);
+      track.setWebAudioPlugins(
+        hasVolumeNodes
+          ? [audioNodes!.gain, audioNodes!.pan]
+          : [],
+      );
+    } else {
+      track.setAudioContext(undefined);
+      track.setWebAudioPlugins([]);
+    }
     setTrackReady(true);
     controls.setPlaybackStarted();
   }, [
     audioContext,
     audioNodes,
+    effectiveAudioContext,
+    hasVolumeNodes,
     setTrackReady,
     trackReady,
     trackRef,

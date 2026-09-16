@@ -56,10 +56,12 @@ import {
   type VideoCodec,
   rnnoiseNoiseSuppression as rnnoiseNoiseSuppressionSetting,
   rnnoiseNoiseSuppressionPreset as rnnoiseNoiseSuppressionPresetSetting,
+  rnnoiseNoiseSuppressionIncoming as rnnoiseNoiseSuppressionIncomingSetting,
   micCutoffEnabled as micCutoffEnabledSetting,
   micCutoffThresholdDb as micCutoffThresholdDbSetting,
   deepFilterNetNoiseSuppression as deepFilterNetNoiseSuppressionSetting,
   deepFilterNetNoiseSuppressionLevel as deepFilterNetNoiseSuppressionLevelSetting,
+  deepFilterNetNoiseSuppressionIncoming as deepFilterNetNoiseSuppressionIncomingSetting,
 } from "./settings";
 import { PreferencesSettingsTab } from "./PreferencesSettingsTab";
 import { Slider } from "../Slider";
@@ -272,6 +274,9 @@ export const SettingsModal: FC<Props> = ({
     const [rnnoiseEnabled, setRnnoiseEnabled] = useSetting(
       rnnoiseNoiseSuppressionSetting,
     );
+    const [rnnoiseIncoming, setRnnoiseIncoming] = useSetting(
+      rnnoiseNoiseSuppressionIncomingSetting,
+    );
     const [rnnoisePreset, setRnnoisePreset] = useSetting(
       rnnoiseNoiseSuppressionPresetSetting,
     );
@@ -306,6 +311,19 @@ export const SettingsModal: FC<Props> = ({
         </FieldRow>
         {effectiveRnnoiseEnabled && (
           <>
+            <FieldRow>
+              <InputField
+                id="activateRNNoiseSuppressionIncoming"
+                label={t("settings.audio_tab.rnnoise_incoming_label")}
+                description={t(
+                  "settings.audio_tab.rnnoise_incoming_description",
+                )}
+                type="checkbox"
+                checked={!!rnnoiseIncoming}
+                onChange={(e): void => setRnnoiseIncoming(e.target.checked)}
+                disabled={!supported}
+              />
+            </FieldRow>
             <p>{t("settings.audio_tab.rnnoise_preset_description")}</p>
             {rnnoiseSuppressionPresets.map((preset) => (
               <InlineField
@@ -333,6 +351,9 @@ export const SettingsModal: FC<Props> = ({
     const supported = supportsDeepFilterNetProcessor();
     const [dfEnabled, setDfEnabled] = useSetting(
       deepFilterNetNoiseSuppressionSetting,
+    );
+    const [dfIncoming, setDfIncoming] = useSetting(
+      deepFilterNetNoiseSuppressionIncomingSetting,
     );
     const [dfLevel, setDfLevel] = useSetting(
       deepFilterNetNoiseSuppressionLevelSetting,
@@ -363,26 +384,41 @@ export const SettingsModal: FC<Props> = ({
           />
         </FieldRow>
         {effectiveDfEnabled && (
-          <div className={styles.volumeSlider}>
-            <label>
-              {t("settings.audio_tab.deepfilternet_level_label")}
-              {": "}
-              <span className={styles.settingValue}>
-                {Math.round(dfLevelRaw * 100)}%
-              </span>
-            </label>
-            <p>{t("settings.audio_tab.deepfilternet_level_description")}</p>
-            <Slider
-              label={t("settings.audio_tab.deepfilternet_level_label")}
-              value={dfLevelRaw}
-              onValueChange={setDfLevelRaw}
-              onValueCommit={setDfLevel}
-              min={0}
-              max={1}
-              step={0.05}
-              tooltipFormatter={(v): string => `${Math.round(v * 100)}%`}
-            />
-          </div>
+          <>
+            <FieldRow>
+              <InputField
+                id="activateDeepFilterNetSuppressionIncoming"
+                label={t("settings.audio_tab.deepfilternet_incoming_label")}
+                description={t(
+                  "settings.audio_tab.deepfilternet_incoming_description",
+                )}
+                type="checkbox"
+                checked={!!dfIncoming}
+                onChange={(e): void => setDfIncoming(e.target.checked)}
+                disabled={!supported}
+              />
+            </FieldRow>
+            <div className={styles.volumeSlider}>
+              <label>
+                {t("settings.audio_tab.deepfilternet_level_label")}
+                {": "}
+                <span className={styles.settingValue}>
+                  {Math.round(dfLevelRaw * 100)}%
+                </span>
+              </label>
+              <p>{t("settings.audio_tab.deepfilternet_level_description")}</p>
+              <Slider
+                label={t("settings.audio_tab.deepfilternet_level_label")}
+                value={dfLevelRaw}
+                onValueChange={setDfLevelRaw}
+                onValueCommit={setDfLevel}
+                min={0}
+                max={1}
+                step={0.05}
+                tooltipFormatter={(v): string => `${Math.round(v * 100)}%`}
+              />
+            </div>
+          </>
         )}
       </>
     );

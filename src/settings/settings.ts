@@ -129,12 +129,32 @@ export const rnnoiseNoiseSuppressionPreset =
   );
 
 /**
+ * Whether RNNoise-based noise suppression is also applied to incoming
+ * (remote) member microphone audio. Only affects member microphones, never
+ * reactions or screen share streams.
+ */
+export const rnnoiseNoiseSuppressionIncoming = new Setting<boolean>(
+  "rnnoise-noise-suppression-incoming",
+  false,
+);
+
+/**
  * Whether DeepFilterNet-based noise suppression is enabled.
  * Defaults to off; when enabled it takes precedence over RNNoise.
  */
 export const deepFilterNetNoiseSuppression = new Setting<boolean>(
   "deepfilternet-noise-suppression",
   true,
+);
+
+/**
+ * Whether DeepFilterNet-based noise suppression is also applied to incoming
+ * (remote) member microphone audio. Only affects member microphones, never
+ * reactions or screen share streams.
+ */
+export const deepFilterNetNoiseSuppressionIncoming = new Setting<boolean>(
+  "deepfilternet-noise-suppression-incoming",
+  false,
 );
 
 /**

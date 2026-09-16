@@ -206,6 +206,8 @@
     "audio_tab": {
       "deepfilternet_description": "Uses a deep-learning model to remove background noise such as keyboard, traffic, and other non-stationary sounds.",
       "deepfilternet_header": "AI noise suppression",
+      "deepfilternet_incoming_description": "Also applies AI noise suppression to what other participants say. Only affects their microphones, never reactions or screen shares.",
+      "deepfilternet_incoming_label": "Apply to incoming member audio",
       "deepfilternet_label": "Enable AI noise suppression (DeepFilterNet)",
       "deepfilternet_level_description": "Higher levels remove more noise but can make your voice sound more processed.",
       "deepfilternet_level_label": "Noise reduction level",
@@ -218,6 +220,8 @@
       "mic_cutoff_not_supported": "(Microphone cutoff is not supported by this browser.)",
       "mic_cutoff_threshold_label": "Cutoff volume",
       "rnnoise_header": "Noise suppression",
+      "rnnoise_incoming_description": "Also applies noise suppression to what other participants say. Only affects their microphones, never reactions or screen shares.",
+      "rnnoise_incoming_label": "Apply to incoming member audio",
       "rnnoise_label": "Enable enhanced noise suppression (RNNoise)",
       "rnnoise_not_supported": "(Enhanced noise suppression is not supported by this browser.)",
       "rnnoise_preset_balanced": "Balanced",

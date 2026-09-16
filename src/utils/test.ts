@@ -549,6 +549,12 @@ export const mockTrack = (
         setWebAudioPlugins: vi.fn(),
         setVolume: vi.fn(),
         setSinkId: vi.fn().mockResolvedValue(undefined),
+        // LiveKit's `Track` base exposes the processor API on remote tracks
+        // too; the incoming-audio noise suppression hook calls these on every
+        // rendered remote track.
+        setProcessor: vi.fn().mockResolvedValue(undefined),
+        stopProcessor: vi.fn().mockResolvedValue(undefined),
+        getProcessor: vi.fn(),
         // The audio renderer remounts the track element when the media stream
         // changes, so the mock needs a stable mediaStream identity.
         mediaStream: {},

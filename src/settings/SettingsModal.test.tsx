@@ -17,7 +17,9 @@ import {
   micCutoffEnabled,
   micCutoffThresholdDb,
   rnnoiseNoiseSuppression,
+  rnnoiseNoiseSuppressionIncoming,
   rnnoiseNoiseSuppressionPreset,
+  deepFilterNetNoiseSuppressionIncoming,
 } from "./settings";
 import { supportsRNNoiseProcessor } from "../audio/RNNoiseProcessor";
 import { MIC_CUTOFF_DEFAULT_DB } from "../audio/microphoneGate";
@@ -136,6 +138,8 @@ describe("SettingsModal RNNoise controls", () => {
     mockRequestDeviceNames.mockClear();
     rnnoiseNoiseSuppressionPreset.setValue("conservative");
     rnnoiseNoiseSuppression.setValue(false);
+    rnnoiseNoiseSuppressionIncoming.setValue(false);
+    deepFilterNetNoiseSuppressionIncoming.setValue(false);
     micCutoffEnabled.setValue(false);
     micCutoffThresholdDb.setValue(MIC_CUTOFF_DEFAULT_DB);
     vi.mocked(supportsRNNoiseProcessor).mockReturnValue(true);
@@ -229,5 +233,41 @@ describe("SettingsModal RNNoise controls", () => {
       screen.getByText("(Microphone cutoff is not supported by this browser.)"),
     ).toBeInTheDocument();
     expect(screen.queryByText(/Cutoff volume/)).not.toBeInTheDocument();
+  });
+
+  it("only shows the incoming RNNoise checkbox once RNNoise is enabled", async () => {
+    const user = userEvent.setup();
+    renderSettingsModal();
+
+    // Not visible initially (RNNoise is off).
+    expect(
+      document.getElementById("activateRNNoiseSuppressionIncoming"),
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByLabelText("Enable enhanced noise suppression (RNNoise)"),
+    );
+
+    expect(
+      document.getElementById("activateRNNoiseSuppressionIncoming"),
+    ).toBeInTheDocument();
+  });
+
+  it("persists the incoming RNNoise setting when toggled", async () => {
+    const user = userEvent.setup();
+    rnnoiseNoiseSuppression.setValue(true);
+    renderSettingsModal();
+
+    const checkbox = document.getElementById(
+      "activateRNNoiseSuppressionIncoming",
+    ) as HTMLInputElement;
+    expect(checkbox).not.toBeChecked();
+
+    await user.click(checkbox);
+
+    expect(rnnoiseNoiseSuppressionIncoming.getValue()).toBe(true);
+    expect(
+      localStorage.getItem("matrix-setting-rnnoise-noise-suppression-incoming"),
+    ).toBe("true");
   });
 });
