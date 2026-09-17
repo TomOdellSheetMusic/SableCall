@@ -81,14 +81,14 @@ exports[`InCallView > rendering > renders 1`] = `
       class="_scrollingGrid_4e7ff8 _grid_b0d1cd"
     >
       <div
-        class="_layer_b00c5f"
+        class="_layer_185815"
       >
         <div
-          class="_container_b00c5f _slot_b0d1cd"
+          class="_container_185815 _slot_b0d1cd"
           data-id="1"
         >
           <div
-            class="_slot_b00c5f _local_b00c5f _slot_b0d1cd"
+            class="_slot_185815 _local_185815 _slot_b0d1cd"
             data-block-alignment="start"
             data-id="0"
             data-inline-alignment="end"
@@ -423,8 +423,8 @@ exports[`InCallView > rendering > renders 1`] = `
         data-size="lg"
       >
         <input
-          aria-labelledby="_r_19_"
-          name="layoutMode"
+          aria-labelledby="_r_1a_"
+          name="_r_19_"
           type="radio"
           value="spotlight"
         />
@@ -441,9 +441,9 @@ exports[`InCallView > rendering > renders 1`] = `
           />
         </svg>
         <input
-          aria-labelledby="_r_1e_"
+          aria-labelledby="_r_1f_"
           checked=""
-          name="layoutMode"
+          name="_r_19_"
           type="radio"
           value="grid"
         />

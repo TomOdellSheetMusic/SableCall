@@ -74,10 +74,7 @@ export interface ConfigOptions {
   livekit?: {
     // The link to the service that returns a livekit url and token to use it.
     // This is a fallback link in case the homeserver in use does not advertise
-    // a livekit service url in the client well-known.
-    // The well known needs to be formatted like so:
-    // {"type":"livekit", "livekit_service_url":"https://livekit.example.com"}
-    // and stored under the key: "org.matrix.msc4143.rtc_foci"
+    // a livekit service url over the transports endpoint.
     livekit_service_url: string;
   };
 
@@ -238,14 +235,26 @@ export interface ConfigOptions {
 // Overrides members from ConfigOptions that are always provided by the
 // default config and are therefore non-optional.
 export interface ResolvedConfigOptions extends ConfigOptions {
-  default_server_config: {
-    ["m.homeserver"]: {
-      base_url: string;
-      server_name: string;
-    };
-  };
   sync_disconnect_grace_period_ms: number;
   ssla: string;
+  media_quality: Required<
+    Pick<NonNullable<ConfigOptions["media_quality"]>, "video_codec">
+  > & {
+    video: Required<
+      Pick<
+        NonNullable<NonNullable<ConfigOptions["media_quality"]>["video"]>,
+        "max_resolution" | "max_bitrate" | "max_framerate"
+      >
+    >;
+    screen_share: Required<
+      Pick<
+        NonNullable<
+          NonNullable<ConfigOptions["media_quality"]>["screen_share"]
+        >,
+        "max_resolution" | "max_bitrate" | "max_framerate"
+      >
+    >;
+  };
   matrix_rtc_session: {
     wait_for_key_rotation_ms?: number;
     delayed_leave_event_delay_ms: number;
@@ -257,17 +266,24 @@ export interface ResolvedConfigOptions extends ConfigOptions {
 }
 
 export const DEFAULT_CONFIG: ResolvedConfigOptions = {
-  default_server_config: {
-    ["m.homeserver"]: {
-      base_url: "http://localhost:8008",
-      server_name: "localhost",
-    },
-  },
   features: {
     feature_use_device_session_member_events: true,
   },
   sync_disconnect_grace_period_ms: 10000,
   ssla: "https://static.element.io/legal/element-software-and-services-license-agreement-uk-1.pdf",
+  media_quality: {
+    video_codec: "vp8",
+    video: {
+      max_resolution: 720,
+      max_bitrate: 1_700_000,
+      max_framerate: 30,
+    },
+    screen_share: {
+      max_resolution: 1080,
+      max_bitrate: 5_000_000,
+      max_framerate: 30,
+    },
+  },
   matrix_rtc_session: {
     delayed_leave_event_delay_ms: 10000,
     network_error_retry_ms: 1000,

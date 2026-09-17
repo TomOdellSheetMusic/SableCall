@@ -21,6 +21,7 @@ import type { IWidgetApiRequest } from "matrix-widget-api";
 import { LazyEventEmitter } from "./LazyEventEmitter";
 import { getUrlParams } from "./UrlParams";
 import { Config } from "./config/Config";
+import { seedSettingsFromConfig } from "./settings/settings";
 import { ElementCallReactionEventType } from "./reactions";
 
 // Subset of the actions in element-web
@@ -176,6 +177,7 @@ export const initializeWidget = (
           sendToDevice: sendRecvToDevice,
           receiveToDevice: sendRecvToDevice,
           turnServers: false,
+          rtcTransports: true,
           sendDelayedEvents: true,
           updateDelayedEvents: true,
           sendSticky: true,
@@ -198,7 +200,8 @@ export const initializeWidget = (
         // Wait for the config file to be ready (we load very early on so it might not
         // be otherwise)
         await Config.init();
-        await client.startClient({ clientWellKnownPollPeriod: 60 * 10 });
+        seedSettingsFromConfig(Config.get().media_quality);
+        await client.startClient();
         return client;
       };
 

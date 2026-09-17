@@ -25,8 +25,21 @@ jobs:
           cache: "pnpm"
           node-version-file: ".node-version"
       - name: Install dependencies
-        run: "pnpm install --frozen-lockfile"
-      - name: Coverage
+        # ignore-pnpmfile should never be commited. Make CI crash if it happened (`pnpmfileChecksum` is present)
+        run: "pnpm install --frozen-lockfile --ignore-pnpmfile"
+      - name: Get Playwright version
+        run: echo "PLAYWRIGHT_VERSION=$(pnpm list @playwright/test --depth=0 --json | jq -r '.[0].devDependencies["@playwright/test"].version')" >> $GITHUB_ENV
+      - name: Cache Playwright binaries
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        id: playwright-cache
+        with:
+          path: |
+            ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ env.PLAYWRIGHT_VERSION }}
+      - name: Install Playwright binaries
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm playwright install --with-deps
+      - name: Vitest
         run: "pnpm run test:coverage"
       # zizmor: ignore[unfenced-secrets]
       - name: Upload coverage to Codecov
@@ -54,10 +67,21 @@ jobs:
           cache: "pnpm"
           node-version-file: ".node-version"
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Install playwright browsers
-        run: pnpm exec playwright install --with-deps
-      - name: Create local config
+        # ignore-pnpmfile should never be commited. Make CI crash if it happened (`pnpmfileChecksum` is present)
+        run: pnpm install --frozen-lockfile --ignore-pnpmfile
+      - name: Get Playwright version
+        run: echo "PLAYWRIGHT_VERSION=$(pnpm list @playwright/test --depth=0 --json | jq -r '.[0].devDependencies["@playwright/test"].version')" >> $GITHUB_ENV
+      - name: Cache Playwright binaries
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        id: playwright-cache
+        with:
+          path: |
+            ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ env.PLAYWRIGHT_VERSION }}
+      - name: Install Playwright binaries
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm playwright install --with-deps
+      - name: Run backend components
         run: |
           cp config/sample.json public/config.json
           jq '.features.livekit_allow_screenshare_on_active_sfu = true' public/config.json > public/config.json.tmp && mv public/config.json.tmp public/config.json

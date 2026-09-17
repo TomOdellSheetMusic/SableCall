@@ -66,6 +66,7 @@ interface SpotlightItemBaseProps {
   background: "solid" | "transparent";
   focusable: boolean;
   "aria-hidden"?: boolean;
+  setVideoAspectRatio?: (ratio: number) => void;
 }
 
 interface SpotlightMemberMediaItemBaseProps extends SpotlightItemBaseProps {
@@ -75,7 +76,6 @@ interface SpotlightMemberMediaItemBaseProps extends SpotlightItemBaseProps {
 }
 
 interface SpotlightUserMediaItemBaseProps extends SpotlightMemberMediaItemBaseProps {
-  videoFit: "contain" | "cover";
   videoEnabled: boolean;
   soundWaves: boolean | undefined;
 }
@@ -118,20 +118,12 @@ const SpotlightUserMediaItem: FC<SpotlightUserMediaItemProps> = ({
   targetHeight,
   ...props
 }) => {
-  const videoFit = useBehavior(vm.videoFit$);
   const videoEnabled = useBehavior(vm.videoEnabled$);
   const speaking = useBehavior(vm.speaking$);
 
-  // Whenever target bounds change, inform the viewModel
-  useEffect(() => {
-    if (targetWidth > 0 && targetHeight > 0) {
-      vm.setTargetDimensions(targetWidth, targetHeight);
-    }
-  }, [targetWidth, targetHeight, vm]);
-
   const baseProps: SpotlightUserMediaItemBaseProps &
     RefAttributes<HTMLDivElement> = {
-    videoFit,
+    setVideoAspectRatio: vm.setVideoAspectRatio,
     videoEnabled,
     soundWaves: props.background === "transparent" ? speaking : undefined,
     targetWidth,
@@ -225,7 +217,6 @@ const SpotlightRingingMediaItem: FC<SpotlightRingingMediaItemProps> = ({
       }
       avatarStyle="translucent"
       videoEnabled={false}
-      videoFit="cover"
       mirror={false}
       {...props}
     />

@@ -12,7 +12,7 @@ import {
   type E2EEManagerOptions,
   type BaseE2EEManager,
 } from "livekit-client";
-import { type Logger } from "matrix-js-sdk/lib/logger";
+import { logger, type Logger } from "matrix-js-sdk/lib/logger";
 // imported as inline to support worker when loaded from a cdn (cross domain)
 import E2EEWorker from "livekit-client/e2ee-worker?worker&inline";
 import { type CallMembershipIdentityParts } from "matrix-js-sdk/lib/matrixrtc/EncryptionManager";
@@ -35,6 +35,8 @@ import {
   cameraBitrate,
   cameraCodec,
   parseResolution,
+  echoCancellationSetting,
+  noiseSuppressionSetting,
   autoGainControlSetting,
 } from "../../../settings/settings.ts";
 
@@ -71,25 +73,22 @@ export class ECConnectionFactory implements ConnectionFactory {
     livekitKeyProvider: BaseKeyProvider | undefined,
     private controlledAudioDevices: boolean,
     livekitRoomFactory?: () => LivekitRoom,
-    echoCancellation: boolean = true,
-    noiseSuppression: boolean = true,
   ) {
-    const defaultFactory = (): LivekitRoom =>
-      new LivekitRoom(
-        generateRoomOption({
-          devices: this.devices,
-          processorState: this.processorState$.value,
-          e2eeLivekitOptions: livekitKeyProvider && {
-            keyProvider: livekitKeyProvider,
-            // It's important that every room use a separate E2EE worker.
-            // They get confused if given streams from multiple rooms.
-            worker: new E2EEWorker(),
-          },
-          controlledAudioDevices: this.controlledAudioDevices,
-          echoCancellation,
-          noiseSuppression,
-        }),
-      );
+    const defaultFactory = (): LivekitRoom => {
+      const roomOptions = generateRoomOption({
+        devices: this.devices,
+        processorState: this.processorState$.value,
+        e2eeLivekitOptions: livekitKeyProvider && {
+          keyProvider: livekitKeyProvider,
+          // It's important that every room use a separate E2EE worker.
+          // They get confused if given streams from multiple rooms.
+          worker: new E2EEWorker(),
+        },
+        controlledAudioDevices: this.controlledAudioDevices,
+      });
+      logger.info("[ECConnectionFactory] livekit room options: ", roomOptions);
+      return new LivekitRoom(roomOptions);
+    };
     this.livekitRoomFactory = livekitRoomFactory ?? defaultFactory;
   }
 
@@ -133,8 +132,6 @@ function generateRoomOption({
   processorState,
   e2eeLivekitOptions,
   controlledAudioDevices,
-  echoCancellation,
-  noiseSuppression,
 }: {
   devices: MediaDevices;
   processorState: ProcessorState;
@@ -143,8 +140,6 @@ function generateRoomOption({
     | { e2eeManager: BaseE2EEManager }
     | undefined;
   controlledAudioDevices: boolean;
-  echoCancellation: boolean;
-  noiseSuppression: boolean;
 }): RoomOptions {
   const liveKitOptions = getLiveKitOptions();
 
@@ -180,8 +175,8 @@ function generateRoomOption({
     audioCaptureDefaults: {
       ...liveKitOptions.audioCaptureDefaults,
       deviceId: devices.audioInput.selected$.value?.id,
-      echoCancellation,
-      noiseSuppression,
+      echoCancellation: echoCancellationSetting.getValue(),
+      noiseSuppression: noiseSuppressionSetting.getValue(),
       autoGainControl: autoGainControlSetting.getValue(),
     },
     audioOutput: {

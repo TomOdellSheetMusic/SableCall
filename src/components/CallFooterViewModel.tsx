@@ -217,14 +217,7 @@ export function createCallFooterViewModel(
 
     showLogo$: scope.behavior(isPip$.pipe(map((isPip) => showLogo && !isPip))),
 
-    layoutMode$: callModel.gridMode$,
-    setLayoutMode$: scope.behavior(
-      isPip$.pipe(
-        map((isPip) =>
-          !isPip && showControls ? callModel.setGridMode : undefined,
-        ),
-      ),
-    ),
+    layoutSwitchVm$: callModel.layoutSwitchVm$,
 
     sharingScreen$: callModel.sharingScreen$,
     toggleScreenSharing$: constant(callModel.toggleScreenSharing ?? undefined),
@@ -282,7 +275,6 @@ export function createLobbyFooterViewModel(
       hideControls: false,
       asOverlay: false,
       buttonSize: "lg",
-      showLayoutSwitcher: false,
       openSettings,
       hangup,
       debugTileLayout: false,
@@ -290,7 +282,6 @@ export function createLobbyFooterViewModel(
       toggleAudio: undefined,
       toggleAudioOutput: undefined,
       toggleVideo: undefined,
-      setLayoutMode: undefined,
       toggleScreenSharing: undefined,
       audioEnabled: undefined,
       audioBusy: false,
@@ -298,7 +289,7 @@ export function createLobbyFooterViewModel(
       audioOutputBusy: false,
       videoEnabled: undefined,
       videoBusy: false,
-      layoutMode: undefined,
+      layoutSwitchVm: null,
       sharingScreen: false,
       audioOutputSwitcher: undefined,
       reactionIdentifier: undefined,

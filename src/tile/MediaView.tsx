@@ -7,7 +7,13 @@ Please see LICENSE in the repository root for full details.
 
 import { type TrackReferenceOrPlaceholder } from "@livekit/components-core";
 import { animated } from "@react-spring/web";
-import { type FC, type ComponentProps, type ReactNode } from "react";
+import {
+  type FC,
+  type ComponentProps,
+  type ReactNode,
+  type SyntheticEvent,
+  useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 import classNames from "classnames";
 import { VideoTrack } from "@livekit/components-react";
@@ -26,6 +32,8 @@ import {
 import { type ReactionOption } from "../reactions";
 import { ReactionIndicator } from "../reactions/ReactionIndicator";
 import { RTCConnectionStats } from "../RTCConnectionStats";
+import videoPlaceholder from "../graphics/video-placeholder.gif";
+import { autoVideoFit } from "../utils/videoFit";
 
 interface Props extends ComponentProps<typeof animated.div> {
   className?: string;
@@ -33,8 +41,13 @@ interface Props extends ComponentProps<typeof animated.div> {
   targetWidth: number;
   targetHeight: number;
   video: TrackReferenceOrPlaceholder | undefined;
-  videoFit: "cover" | "contain";
+  /**
+   * How to fit the video content inside the tile. When undefined, MediaView
+   * chooses a smart default based on the aspect ratios of the tile and video.
+   */
+  videoFit?: "cover" | "contain";
   mirror: boolean;
+  soundWaves?: boolean;
   userId: string;
   videoEnabled: boolean;
   unencryptedWarning: boolean;
@@ -44,6 +57,7 @@ interface Props extends ComponentProps<typeof animated.div> {
   displayName: string;
   mxcAvatarUrl: string | undefined;
   avatarStyle?: "solid" | "translucent";
+  background?: "solid" | "transparent";
   focusable: boolean;
   primaryButton?: ReactNode;
   raisedHandTime?: Date;
@@ -53,9 +67,16 @@ interface Props extends ComponentProps<typeof animated.div> {
   audioStreamStats?: RTCInboundRtpStreamStats | RTCOutboundRtpStreamStats;
   videoStreamStats?: RTCInboundRtpStreamStats | RTCOutboundRtpStreamStats;
   rtcBackendIdentity?: string;
-  // The focus url, mainly for debugging purposes
+  /**
+   * The focus url, mainly for debugging purposes.
+   */
   focusUrl?: string;
   streamOverlay?: ReactNode;
+  /**
+   * Called whenever the aspect ratio of the video content becomes known or
+   * otherwise changes.
+   */
+  setVideoAspectRatio?: (ratio: number) => void;
 }
 
 export const MediaView: FC<Props> = ({
@@ -67,6 +88,7 @@ export const MediaView: FC<Props> = ({
   video,
   videoFit,
   mirror,
+  soundWaves,
   userId,
   videoEnabled,
   unencryptedWarning,
@@ -75,6 +97,7 @@ export const MediaView: FC<Props> = ({
   displayName,
   mxcAvatarUrl,
   avatarStyle = "solid",
+  background = "solid",
   focusable,
   primaryButton,
   status,
@@ -87,6 +110,7 @@ export const MediaView: FC<Props> = ({
   rtcBackendIdentity,
   focusUrl,
   streamOverlay,
+  setVideoAspectRatio: setTheirVideoAspectRatio,
   ...props
 }) => {
   const { t } = useTranslation();
@@ -94,7 +118,26 @@ export const MediaView: FC<Props> = ({
   const [showConnectionStats] = useSetting(showConnectionStatsSetting);
   const [allowPip] = useSetting(allowPipSetting);
 
-  const avatarSize = Math.round(Math.min(targetWidth, targetHeight) / 2);
+  const avatarSize = Math.round(
+    Math.min(targetWidth, targetHeight) *
+      (soundWaves === undefined ? 0.5 : 0.38),
+  );
+
+  const [videoAspectRatio, setOurVideoAspectRatio] = useState<number>(NaN);
+  const tileAspectRatio = targetWidth / targetHeight;
+
+  // Propagate video dimensions
+  const setVideoAspectRatio = (ratio: number) => {
+    setOurVideoAspectRatio(ratio);
+    setTheirVideoAspectRatio?.(ratio);
+  };
+  const videoRef = (el: HTMLVideoElement | null) => {
+    if (el !== null) setVideoAspectRatio(el.videoWidth / el.videoHeight);
+  };
+  const onResize = (ev: SyntheticEvent<HTMLVideoElement>) =>
+    setVideoAspectRatio(
+      ev.currentTarget.videoWidth / ev.currentTarget.videoHeight,
+    );
 
   const warnings = unencryptedWarning && (
     <Tooltip
@@ -122,10 +165,22 @@ export const MediaView: FC<Props> = ({
       style={style}
       ref={ref}
       data-testid="videoTile"
-      data-video-fit={videoFit}
+      data-video-enabled={video && videoEnabled}
+      data-video-fit={
+        videoFit ?? autoVideoFit(videoAspectRatio, tileAspectRatio)
+      }
+      data-background={background}
       {...props}
     >
       <div className={styles.bg}>
+        {soundWaves !== undefined && (
+          <div className={styles.waves} data-visible={soundWaves}>
+            <div className={styles.wave} />
+            <div className={styles.wave} />
+            <div className={styles.wave} />
+            <div className={styles.speakingBorder} />
+          </div>
+        )}
         <Avatar
           id={userId}
           name={displayName}
@@ -143,6 +198,11 @@ export const MediaView: FC<Props> = ({
             disablePictureInPicture={!allowPip}
             style={{ display: video && videoEnabled ? "block" : "none" }}
             data-testid="video"
+            // Set the placeholder to a small transparent image. (On Android web
+            // views the default poster image is particularly ugly.)
+            poster={videoPlaceholder}
+            ref={videoRef}
+            onResize={onResize}
           />
         )}
       </div>
